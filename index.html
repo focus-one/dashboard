@@ -1069,7 +1069,27 @@
         font-size: 12px;
         color: var(--text-muted);
         align-self: center;
-        margin-right: auto;
+      }
+      /* 실시간 로그 tail — 버튼과 status 사이에 1줄 */
+      .dp-live-log {
+        flex: 1;
+        align-self: center;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 11px;
+        color: var(--text-muted);
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 6px 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin: 0 10px;
+      }
+      .dp-live-log.running {
+        color: #059669;
+        border-color: #10b981;
+        background: #ecfdf5;
       }
       .dp-status-msg.ok {
         color: #059669;
@@ -7725,6 +7745,9 @@
             </div>
             <div class="dp-control-actions">
               <span id="dpStatusMsg" class="dp-status-msg"></span>
+              <div id="dpLiveLog" class="dp-live-log" title="writer 실시간 로그">
+                writer 대기 중
+              </div>
               <button
                 id="dpStartBtn"
                 class="dp-start-btn"
@@ -9788,6 +9811,47 @@
          "dpAccountDelayMin", "dpAccountDelayMax"].forEach(id => {
           dpClampNumberInput(document.getElementById(id));
         });
+      });
+
+      // writer 실시간 로그 + 실행 상태 폴링 (1.5s 간격)
+      let _dpStatusPollTimer = null;
+      let _dpLastLogLine = '';
+      async function dpPollStatus() {
+        const liveEl = document.getElementById('dpLiveLog');
+        const startBtn = document.getElementById('dpStartBtn');
+        const stopBtn = document.getElementById('dpStopBtn');
+        try {
+          const res = await fetch(`${DP_WRITER_URL}/logs`, { cache: 'no-store' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const data = await res.json();
+          const logs = data.logs || [];
+          const last = logs.length ? logs[logs.length - 1] : '';
+          if (last && last !== _dpLastLogLine) {
+            _dpLastLogLine = last;
+          }
+          if (liveEl) {
+            liveEl.textContent = last || (data.running ? '작업 중...' : 'writer 대기 중');
+            liveEl.classList.toggle('running', !!data.running);
+          }
+          // 작업 중: 발행 시작 비활성, 중지 활성
+          // 대기 중: 발행 시작 활성, 중지 비활성
+          if (startBtn) startBtn.disabled = !!data.running;
+          if (stopBtn) stopBtn.disabled = !data.running;
+        } catch (e) {
+          // writer 연결 끊김 → 로그 영역에 표시, 시작은 시도 가능하게 활성 유지
+          if (liveEl) {
+            liveEl.textContent = 'writer 연결 안됨 (exe 실행 중인지 확인)';
+            liveEl.classList.remove('running');
+          }
+          if (startBtn) startBtn.disabled = false;
+          if (stopBtn) stopBtn.disabled = true;
+        }
+      }
+      // 대시보드 로드 직후 + 1.5초 간격 폴링 시작
+      window.addEventListener('DOMContentLoaded', () => {
+        dpPollStatus();
+        if (_dpStatusPollTimer) clearInterval(_dpStatusPollTimer);
+        _dpStatusPollTimer = setInterval(dpPollStatus, 1500);
       });
 
       async function dpStopPost() {
