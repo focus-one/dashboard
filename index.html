@@ -9876,8 +9876,12 @@
               const postDate = cells[3]
                 ? ((cells[3].f ?? cells[3].v ?? "") + "").trim()
                 : "";
-              if (!status && !product && !cafe) return; // 완전 빈 행 스킵
-              accountRows.push({ status, product, cafe, date: postDate });
+              // F열(cells[5]) ID — 없으면 실제 계정 아님 (writer get_accounts와 동일 정책)
+              const id = cells[5]
+                ? ((cells[5].f ?? cells[5].v ?? "") + "").trim()
+                : "";
+              if (!id) return; // ID 없는 행은 집계/카운트 X
+              accountRows.push({ status, product, cafe, date: postDate, id });
               // 제품 드롭다운 옵션 (상태 O + 제품분류 있는 행 기준)
               if (status.toUpperCase() === "O" && product) {
                 productSet.add(product);
@@ -9885,6 +9889,7 @@
             });
             DP_PRODUCT_OPTIONS = Array.from(productSet).sort();
             DP_ACCOUNT_ROWS = accountRows;
+            console.log(`[dp] 계정 행 수집: ${accountRows.length}개 (ID 있는 행만)`);
           } catch (e) {
             console.warn("[dp] 계정 시트 제품분류 파싱 실패:", e);
             DP_PRODUCT_OPTIONS = [];
