@@ -9432,9 +9432,29 @@
       let dpInited = false;
       let DP_CAFE_OPTIONS = []; // 발행 컨트롤 드롭다운: 스토어 시트 B열 unique
       let DP_PRODUCT_OPTIONS = []; // 발행 컨트롤 드롭다운: 스토어 시트 C열 unique
-      const DP_WRITER_URL = "http://127.0.0.1:8765"; // writer exe 로컬 서버
-      const DP_N8N_WEBHOOK_URL =
+      // config.json에서 로드 (loadDashboardConfig() 참고). 네트워크 실패 시 아래 기본값 fallback.
+      let DP_WRITER_URL = "http://127.0.0.1:8765"; // writer exe 로컬 서버
+      let DP_N8N_WEBHOOK_URL =
         "https://qnwkdi111.app.n8n.cloud/webhook/214511ac-f16e-44b1-a36d-919fb49ff1ae"; // n8n 원고 생성 트리거
+
+      // 외부 config.json 로드 — writer URL 바꿀 때 이 파일만 수정하면 됨
+      (async function loadDashboardConfig() {
+        try {
+          const res = await fetch("./config.json?_=" + Date.now(), {
+            cache: "no-store",
+          });
+          if (!res.ok) return;
+          const cfg = await res.json();
+          if (cfg.writerUrl) DP_WRITER_URL = cfg.writerUrl;
+          if (cfg.n8nWebhookUrl) DP_N8N_WEBHOOK_URL = cfg.n8nWebhookUrl;
+          console.log("[config] loaded:", {
+            DP_WRITER_URL,
+            DP_N8N_WEBHOOK_URL,
+          });
+        } catch (e) {
+          console.warn("[config] load failed, using defaults:", e);
+        }
+      })();
 
       async function dpInit() {
         dpInited = true;
