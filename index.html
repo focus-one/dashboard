@@ -972,6 +972,94 @@
       }
 
       /* ══ 일상글 관리 ══ */
+      /* 발행 컨트롤 카드 */
+      .dp-control-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 18px 22px;
+        margin-bottom: 18px;
+      }
+      .dp-control-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .dp-control-title::before {
+        content: "▶";
+        color: #10b981;
+        font-size: 10px;
+      }
+      .dp-control-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+      .dp-control-field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .dp-control-field label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-muted);
+      }
+      .dp-control-field select,
+      .dp-control-field input {
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 13px;
+        background: var(--bg);
+        color: var(--text-primary);
+      }
+      .dp-control-field select:focus,
+      .dp-control-field input:focus {
+        outline: none;
+        border-color: #10b981;
+      }
+      .dp-control-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+      .dp-start-btn {
+        background: #10b981;
+        color: white;
+        border: none;
+        padding: 9px 22px;
+        border-radius: 6px;
+        font-weight: 700;
+        font-size: 13px;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .dp-start-btn:hover {
+        background: #059669;
+      }
+      .dp-start-btn:disabled {
+        background: #9ca3af;
+        cursor: not-allowed;
+      }
+      .dp-status-msg {
+        font-size: 12px;
+        color: var(--text-muted);
+        align-self: center;
+        margin-right: auto;
+      }
+      .dp-status-msg.ok {
+        color: #059669;
+      }
+      .dp-status-msg.err {
+        color: #dc2626;
+      }
+
       .dp-summary-row {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
@@ -7562,6 +7650,55 @@
             </div>
           </div>
 
+          <!-- 발행 시작 컨트롤 (writer exe 트리거) -->
+          <div class="dp-control-card">
+            <div class="dp-control-title">발행 시작 설정</div>
+            <div class="dp-control-grid">
+              <div class="dp-control-field">
+                <label for="dpCafeSelect">어떤 카페</label>
+                <select id="dpCafeSelect">
+                  <option value="">선택</option>
+                </select>
+              </div>
+              <div class="dp-control-field">
+                <label for="dpProductSelect">어떤 제품</label>
+                <select id="dpProductSelect">
+                  <option value="">선택</option>
+                </select>
+              </div>
+              <div class="dp-control-field">
+                <label for="dpIpCount">IP 개수</label>
+                <input
+                  type="number"
+                  id="dpIpCount"
+                  min="1"
+                  max="50"
+                  value="1"
+                />
+              </div>
+              <div class="dp-control-field">
+                <label for="dpPostsPerIp">IP당 일상글 개수</label>
+                <input
+                  type="number"
+                  id="dpPostsPerIp"
+                  min="1"
+                  max="20"
+                  value="4"
+                />
+              </div>
+            </div>
+            <div class="dp-control-actions">
+              <span id="dpStatusMsg" class="dp-status-msg"></span>
+              <button
+                id="dpStartBtn"
+                class="dp-start-btn"
+                onclick="dpStartPost()"
+              >
+                발행 시작
+              </button>
+            </div>
+          </div>
+
           <!-- 요약 2카드 -->
           <div class="dp-summary-row">
             <div class="dp-sum-card">
@@ -9293,6 +9430,9 @@
       let DP_TOTAL_STOCK = 0; // 전체 재고 합계 (slug 매칭 여부와 관계없이 시트 총 행수)
       let DP_LAST_LOAD = 0;
       let dpInited = false;
+      let DP_CAFE_OPTIONS = []; // 발행 컨트롤 드롭다운: 스토어 시트 B열 unique
+      let DP_PRODUCT_OPTIONS = []; // 발행 컨트롤 드롭다운: 스토어 시트 C열 unique
+      const DP_WRITER_URL = "http://127.0.0.1:8765"; // writer exe 로컬 서버
 
       async function dpInit() {
         dpInited = true;
@@ -9349,11 +9489,13 @@
             };
           });
 
-          // 2) 일상글 스토어 파싱 → slug별 누적 + 오늘 발행 카운트(A열 날짜)
+          // 2) 일상글 스토어 파싱 → slug별 누적 + 오늘 발행 + 카페/제품 옵션 수집
           const storeText = await storeRes.text();
           const stockBySlug = {};
           let totalStock = 0;
           let todayCount = 0;
+          const cafeOptionsSet = new Set();
+          const productOptionsSet = new Set();
           try {
             const sj = JSON.parse(
               storeText.substring(
@@ -9379,6 +9521,16 @@
                 : "";
               if (dpIsToday(dateStr, todayStr)) todayCount++;
 
+              // B열 사용한 카페 / C열 제품명 → 드롭다운 옵션 수집
+              const cafeVal = cells[1]
+                ? ((cells[1].f ?? cells[1].v ?? "") + "").trim()
+                : "";
+              const prodVal = cells[2]
+                ? ((cells[2].f ?? cells[2].v ?? "") + "").trim()
+                : "";
+              if (cafeVal) cafeOptionsSet.add(cafeVal);
+              if (prodVal) productOptionsSet.add(prodVal);
+
               // F열 발행 URL(index 5) 또는 B열 사용한 카페(index 1)에서 cafe slug 추출
               const urlCandidates = [cells[5], cells[1]].map((c) =>
                 c ? ((c.f ?? c.v ?? "") + "").trim() : "",
@@ -9397,6 +9549,8 @@
           } catch (e) {
             /* 시트가 비었거나 파싱 실패 시 통과 */
           }
+          DP_CAFE_OPTIONS = Array.from(cafeOptionsSet).sort();
+          DP_PRODUCT_OPTIONS = Array.from(productOptionsSet).sort();
 
           // 3) 작성된(재고>0) 카페만 DP_CAFES로 구성
           const builtCafes = Object.keys(stockBySlug).map((slug) => {
@@ -9415,6 +9569,7 @@
           DP_TODAY = todayCount;
           DP_TOTAL_STOCK = totalStock;
           DP_LAST_LOAD = Date.now();
+          dpPopulateControlSelects();
           dpRender();
         } catch (e) {
           console.error("dp load error", e);
@@ -9423,6 +9578,79 @@
               '<div class="dp-empty" style="color:#dc2626;">불러오기 실패: ' +
               ((e && e.message) || e) +
               "</div>";
+        }
+      }
+
+      function dpPopulateControlSelects() {
+        const cafeSel = document.getElementById("dpCafeSelect");
+        const prodSel = document.getElementById("dpProductSelect");
+        if (cafeSel) {
+          const prev = cafeSel.value;
+          cafeSel.innerHTML =
+            '<option value="">선택</option>' +
+            DP_CAFE_OPTIONS.map(
+              (v) =>
+                `<option value="${v.replace(/"/g, "&quot;")}">${v}</option>`,
+            ).join("");
+          if (prev && DP_CAFE_OPTIONS.includes(prev)) cafeSel.value = prev;
+        }
+        if (prodSel) {
+          const prev = prodSel.value;
+          prodSel.innerHTML =
+            '<option value="">선택</option>' +
+            DP_PRODUCT_OPTIONS.map(
+              (v) =>
+                `<option value="${v.replace(/"/g, "&quot;")}">${v}</option>`,
+            ).join("");
+          if (prev && DP_PRODUCT_OPTIONS.includes(prev)) prodSel.value = prev;
+        }
+      }
+
+      async function dpStartPost() {
+        const btn = document.getElementById("dpStartBtn");
+        const msg = document.getElementById("dpStatusMsg");
+        const cafe = document.getElementById("dpCafeSelect").value;
+        const product = document.getElementById("dpProductSelect").value;
+        const ipCount = parseInt(
+          document.getElementById("dpIpCount").value,
+          10,
+        );
+        const postsPerIp = parseInt(
+          document.getElementById("dpPostsPerIp").value,
+          10,
+        );
+
+        const setMsg = (text, kind) => {
+          if (!msg) return;
+          msg.textContent = text;
+          msg.className = "dp-status-msg" + (kind ? " " + kind : "");
+        };
+
+        if (!cafe) return setMsg("카페를 선택하세요", "err");
+        if (!product) return setMsg("제품을 선택하세요", "err");
+        if (!(ipCount >= 1)) return setMsg("IP 개수를 확인하세요", "err");
+        if (!(postsPerIp >= 1)) return setMsg("IP당 글 개수를 확인하세요", "err");
+
+        btn.disabled = true;
+        setMsg("writer exe에 요청 중...", "");
+        try {
+          const res = await fetch(`${DP_WRITER_URL}/start`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ cafe, product, ipCount, postsPerIp }),
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json().catch(() => ({}));
+          setMsg(data.message || "작업이 시작되었습니다", "ok");
+        } catch (e) {
+          setMsg(
+            "writer exe가 실행 중이 아니거나 연결할 수 없습니다 (" +
+              (e.message || e) +
+              ")",
+            "err",
+          );
+        } finally {
+          btn.disabled = false;
         }
       }
 
