@@ -1047,6 +1047,24 @@
         background: #9ca3af;
         cursor: not-allowed;
       }
+      .dp-stop-btn {
+        background: #ef4444;
+        color: white;
+        border: none;
+        padding: 9px 22px;
+        border-radius: 6px;
+        font-weight: 700;
+        font-size: 13px;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .dp-stop-btn:hover {
+        background: #dc2626;
+      }
+      .dp-stop-btn:disabled {
+        background: #9ca3af;
+        cursor: not-allowed;
+      }
       .dp-status-msg {
         font-size: 12px;
         color: var(--text-muted);
@@ -7714,6 +7732,13 @@
               >
                 발행 시작
               </button>
+              <button
+                id="dpStopBtn"
+                class="dp-stop-btn"
+                onclick="dpStopPost()"
+              >
+                작업 중지
+              </button>
             </div>
           </div>
 
@@ -9667,6 +9692,36 @@
                 `<option value="${v.replace(/"/g, "&quot;")}">${v}</option>`,
             ).join("");
           if (prev && DP_PRODUCT_OPTIONS.includes(prev)) prodSel.value = prev;
+        }
+      }
+
+      async function dpStopPost() {
+        const btn = document.getElementById("dpStopBtn");
+        const msg = document.getElementById("dpStatusMsg");
+        const setMsg = (text, kind) => {
+          if (!msg) return;
+          msg.textContent = text;
+          msg.className = "dp-status-msg" + (kind ? " " + kind : "");
+        };
+
+        if (!confirm("진행 중인 발행 작업을 중지하시겠습니까?\n(현재 단계 끝나면 종료됩니다)")) {
+          return;
+        }
+
+        btn.disabled = true;
+        setMsg("writer exe에 중지 요청 중...", "");
+        try {
+          const res = await fetch(`${DP_WRITER_URL}/stop`, { method: "POST" });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json().catch(() => ({}));
+          setMsg(data.message || "중지 요청 전달됨", "ok");
+        } catch (e) {
+          setMsg(
+            "writer exe 중지 실패 (" + (e.message || e) + ")",
+            "err",
+          );
+        } finally {
+          btn.disabled = false;
         }
       }
 
