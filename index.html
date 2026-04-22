@@ -996,7 +996,7 @@
       }
       .dp-control-grid {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(4, 1fr);
         gap: 12px;
         margin-bottom: 14px;
       }
@@ -7661,6 +7661,12 @@
                 </select>
               </div>
               <div class="dp-control-field">
+                <label for="dpProductSelect">어떤 제품</label>
+                <select id="dpProductSelect">
+                  <option value="">선택</option>
+                </select>
+              </div>
+              <div class="dp-control-field">
                 <label for="dpIpCount">IP 개수</label>
                 <input
                   type="number"
@@ -9426,6 +9432,7 @@
       let DP_LAST_LOAD = 0;
       let dpInited = false;
       let DP_CAFE_OPTIONS = []; // 발행 컨트롤 드롭다운: 스토어 시트 B열 unique
+      let DP_PRODUCT_OPTIONS = []; // config.json의 products 배열에서 로드
       // config.json에서 로드 (loadDashboardConfig() 참고). 네트워크 실패 시 아래 기본값 fallback.
       let DP_WRITER_URL = "http://127.0.0.1:8765"; // writer exe 로컬 서버
       let DP_N8N_WEBHOOK_URL =
@@ -9441,9 +9448,19 @@
           const cfg = await res.json();
           if (cfg.writerUrl) DP_WRITER_URL = cfg.writerUrl;
           if (cfg.n8nWebhookUrl) DP_N8N_WEBHOOK_URL = cfg.n8nWebhookUrl;
+          if (Array.isArray(cfg.products)) {
+            DP_PRODUCT_OPTIONS = cfg.products.filter(
+              (v) => typeof v === "string" && v.trim(),
+            );
+            // 이미 dpRender 후 호출 시 드롭다운 갱신
+            if (typeof dpPopulateControlSelects === "function") {
+              dpPopulateControlSelects();
+            }
+          }
           console.log("[config] loaded:", {
             DP_WRITER_URL,
             DP_N8N_WEBHOOK_URL,
+            DP_PRODUCT_OPTIONS,
           });
         } catch (e) {
           console.warn("[config] load failed, using defaults:", e);
@@ -9593,6 +9610,7 @@
 
       function dpPopulateControlSelects() {
         const cafeSel = document.getElementById("dpCafeSelect");
+        const prodSel = document.getElementById("dpProductSelect");
         if (cafeSel) {
           const prev = cafeSel.value;
           cafeSel.innerHTML =
@@ -9603,12 +9621,23 @@
             ).join("");
           if (prev && DP_CAFE_OPTIONS.includes(prev)) cafeSel.value = prev;
         }
+        if (prodSel) {
+          const prev = prodSel.value;
+          prodSel.innerHTML =
+            '<option value="">선택</option>' +
+            DP_PRODUCT_OPTIONS.map(
+              (v) =>
+                `<option value="${v.replace(/"/g, "&quot;")}">${v}</option>`,
+            ).join("");
+          if (prev && DP_PRODUCT_OPTIONS.includes(prev)) prodSel.value = prev;
+        }
       }
 
       async function dpStartPost() {
         const btn = document.getElementById("dpStartBtn");
         const msg = document.getElementById("dpStatusMsg");
         const cafe = document.getElementById("dpCafeSelect").value;
+        const product = document.getElementById("dpProductSelect").value;
         const ipCount = parseInt(
           document.getElementById("dpIpCount").value,
           10,
@@ -9625,13 +9654,14 @@
         };
 
         if (!cafe) return setMsg("카페를 선택하세요", "err");
+        if (!product) return setMsg("제품을 선택하세요", "err");
         if (!(ipCount >= 1)) return setMsg("IP 개수를 확인하세요", "err");
         if (!(postsPerIp >= 1)) return setMsg("IP당 글 개수를 확인하세요", "err");
 
         btn.disabled = true;
         setMsg("writer exe + n8n에 병렬 요청 중...", "");
 
-        const payload = { cafe, ipCount, postsPerIp };
+        const payload = { cafe, product, ipCount, postsPerIp };
         const headers = { "Content-Type": "application/json" };
         const body = JSON.stringify(payload);
 

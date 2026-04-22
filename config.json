@@ -1,5 +1,11 @@
 {
   "writerUrl": "https://desktop-6hpfhqs.tail7fdacf.ts.net",
   "n8nWebhookUrl": "https://qnwkdi111.app.n8n.cloud/webhook/214511ac-f16e-44b1-a36d-919fb49ff1ae",
-  "_comment": "writerUrl을 Cloudflare Tunnel URL로 변경 시 이 파일만 수정 후 커밋하면 됨 (index.html 수정 불필요). 캐시 문제 방지를 위해 fetch 시 ?_=timestamp 붙여 강제 fresh 로드."
+  "products": [
+    "이소큐텐",
+    "트라다필",
+    "디토락스",
+    "자이릭스"
+  ],
+  "_comment": "writerUrl/products 등 변경 시 이 파일만 수정 후 커밋하면 됨 (index.html 수정 불필요). 캐시 문제 방지를 위해 fetch 시 ?_=timestamp 붙여 강제 fresh 로드."
 }
