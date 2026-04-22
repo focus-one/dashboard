@@ -9729,6 +9729,29 @@
         }
       }
 
+      // number input min/max 클램프 — HTML max 속성은 키보드 입력 못 막음
+      function dpClampNumberInput(el) {
+        if (!el) return;
+        const apply = () => {
+          const min = el.min !== "" ? parseFloat(el.min) : -Infinity;
+          const max = el.max !== "" ? parseFloat(el.max) : Infinity;
+          let v = parseFloat(el.value);
+          if (isNaN(v)) return;
+          if (v < min) el.value = min;
+          else if (v > max) el.value = max;
+        };
+        el.addEventListener("input", apply);
+        el.addEventListener("blur", apply);
+      }
+      // 페이지 로드 후 모든 dp-control 숫자 input에 클램프 부착
+      window.addEventListener("DOMContentLoaded", () => {
+        ["dpIdCount", "dpPostsPerId",
+         "dpActionDelayMin", "dpActionDelayMax",
+         "dpAccountDelayMin", "dpAccountDelayMax"].forEach(id => {
+          dpClampNumberInput(document.getElementById(id));
+        });
+      });
+
       async function dpStopPost() {
         const btn = document.getElementById("dpStopBtn");
         const msg = document.getElementById("dpStatusMsg");
@@ -9798,7 +9821,8 @@
         if (!cafe) return setMsg("카페를 선택하세요", "err");
         if (!product) return setMsg("제품을 선택하세요", "err");
         if (!(idCount >= 1)) return setMsg("ID 개수를 확인하세요", "err");
-        if (!(postsPerId >= 1)) return setMsg("ID당 글 개수를 확인하세요", "err");
+        if (!(postsPerId >= 1 && postsPerId <= 4))
+          return setMsg("ID당 글 개수는 1~4 사이여야 합니다", "err");
         if (!(actionDelayMin >= 0 && actionDelayMax >= actionDelayMin))
           return setMsg("동작 대기 시간을 확인하세요 (min ≤ max)", "err");
         if (!(accountDelayMin >= 0 && accountDelayMax >= accountDelayMin))
