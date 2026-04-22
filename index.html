@@ -7964,6 +7964,8 @@
         .toLocaleString();
 
       // ── 탭 전환 ──
+      let _routingFromHash = false; // hashchange 처리 중일 때 true → setHash 무한루프 방지
+
       function showPage(page) {
         document.getElementById("page-home").style.display =
           page === "home" ? "block" : "none";
@@ -7980,7 +7982,54 @@
         document.getElementById("page-product").style.display =
           page === "product" ? "block" : "none";
         localStorage.setItem("focusone_current_page", page);
+        if (!_routingFromHash) dashSetHash(page);
       }
+
+      // 현재 URL hash 업데이트 — replaceState로 hashchange 트리거 없이 변경
+      function dashSetHash(page, naverSub, cafeKey) {
+        let h = "#" + page;
+        if (naverSub) h += "/" + naverSub;
+        if (cafeKey) h += "/" + cafeKey;
+        if (window.location.hash !== h) {
+          history.replaceState(null, "", h);
+        }
+      }
+
+      // URL hash 읽어 해당 페이지/섹션으로 네비게이션
+      function dashRouteFromHash() {
+        _routingFromHash = true;
+        try {
+          const hash = window.location.hash.slice(1); // # 제거
+          const parts = hash.split("/").filter(Boolean);
+          const [page, sub, cafeKey] = parts;
+
+          if (!page) {
+            // hash 없으면 마지막 페이지 또는 home
+            const last = localStorage.getItem("focusone_current_page") || "home";
+            showPage(last);
+            return;
+          }
+
+          showPage(page);
+
+          if (page === "naver" && sub) {
+            if (sub === "cafe" && cafeKey) {
+              if (typeof selectCafeSub === "function") {
+                selectCafeSub(cafeKey, null);
+              }
+            } else if (typeof selectNaverSub === "function") {
+              selectNaverSub(sub, null);
+            }
+          }
+        } catch (e) {
+          console.warn("[router] hash 처리 오류:", e);
+        } finally {
+          _routingFromHash = false;
+        }
+      }
+
+      window.addEventListener("hashchange", dashRouteFromHash);
+      window.addEventListener("DOMContentLoaded", dashRouteFromHash);
       function switchTab(el, tab) {
         document
           .querySelectorAll(".tab-btn, .home-btn")
@@ -8582,6 +8631,8 @@
             console.warn("일상글 관리 로딩:", e);
           }
         }
+        // URL hash 동기화
+        if (!_routingFromHash) dashSetHash("naver", "cafe", key);
       }
 
       // 네이버 서브 페이지 전환 (main / id / cafe / blog)
@@ -8664,6 +8715,8 @@
             console.warn("cmp init:", e);
           }
         }
+        // URL hash 동기화
+        if (!_routingFromHash) dashSetHash("naver", sub);
       }
 
       // ═══════════════════════════════════════════════════════════════
