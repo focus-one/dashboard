@@ -9423,6 +9423,7 @@
       //     - A열 날짜(YYYY.MM.DD HH:MM) → 오늘 발행 카운트
       //     - B열 사용한 카페 → 발행 컨트롤 카페 드롭다운 옵션
       //     - F열 발행 URL → 카페 slug 추출해 카페별 누적 집계
+      //   - 계정 시트(16RS6FA.../'2. 일상글' 탭): B열 제품분류 → 발행 컨트롤 제품 드롭다운 옵션
       // ═══════════════════════════════════════════════════════════════
       const DP_CAFE_SHEET_ID = "1Dse0teMt4UGM2T6RnPat7LP40K-cdb8C";
       const DP_STORE_SHEET_ID = "1GYBkS5RB_WKvrcE5VRJO14ectfqk2kh5NaBl6_yFD8A";
@@ -9448,19 +9449,9 @@
           const cfg = await res.json();
           if (cfg.writerUrl) DP_WRITER_URL = cfg.writerUrl;
           if (cfg.n8nWebhookUrl) DP_N8N_WEBHOOK_URL = cfg.n8nWebhookUrl;
-          if (Array.isArray(cfg.products)) {
-            DP_PRODUCT_OPTIONS = cfg.products.filter(
-              (v) => typeof v === "string" && v.trim(),
-            );
-            // 이미 dpRender 후 호출 시 드롭다운 갱신
-            if (typeof dpPopulateControlSelects === "function") {
-              dpPopulateControlSelects();
-            }
-          }
           console.log("[config] loaded:", {
             DP_WRITER_URL,
             DP_N8N_WEBHOOK_URL,
-            DP_PRODUCT_OPTIONS,
           });
         } catch (e) {
           console.warn("[config] load failed, using defaults:", e);
@@ -9481,13 +9472,18 @@
         if (host) host.innerHTML = '<div class="dp-empty">불러오는 중...</div>';
 
         try {
-          const [cafeRes, storeRes] = await Promise.all([
+          const [cafeRes, storeRes, accountRes] = await Promise.all([
             fetch(
               `https://docs.google.com/spreadsheets/d/${DP_CAFE_SHEET_ID}/gviz/tq?tqx=out:json&_=${Date.now()}`,
               { cache: "no-store" },
             ),
             fetch(
               `https://docs.google.com/spreadsheets/d/${DP_STORE_SHEET_ID}/gviz/tq?tqx=out:json&headers=1&_=${Date.now()}`,
+              { cache: "no-store" },
+            ),
+            // 계정 시트 '2. 일상글' 탭 — B열 제품분류 unique 수집용
+            fetch(
+              `https://docs.google.com/spreadsheets/d/16RS6FAvEQelDTcCLjyFlt2zcYlOp9oyEUW9r7BNgGmc/gviz/tq?tqx=out:json&headers=1&sheet=${encodeURIComponent("2. 일상글")}&_=${Date.now()}`,
               { cache: "no-store" },
             ),
           ]);
@@ -9578,6 +9574,29 @@
             /* 시트가 비었거나 파싱 실패 시 통과 */
           }
           DP_CAFE_OPTIONS = Array.from(cafeOptionsSet).sort();
+
+          // 3) 계정 시트 '2. 일상글' 탭 → B열 제품분류 unique 수집
+          try {
+            const acctText = await accountRes.text();
+            const aj = JSON.parse(
+              acctText.substring(
+                acctText.indexOf("{"),
+                acctText.lastIndexOf("}") + 1,
+              ),
+            );
+            const productSet = new Set();
+            (aj.table.rows || []).forEach((r) => {
+              const cells = r.c || [];
+              const v = cells[1]
+                ? ((cells[1].f ?? cells[1].v ?? "") + "").trim()
+                : "";
+              if (v) productSet.add(v);
+            });
+            DP_PRODUCT_OPTIONS = Array.from(productSet).sort();
+          } catch (e) {
+            console.warn("[dp] 계정 시트 제품분류 파싱 실패:", e);
+            DP_PRODUCT_OPTIONS = [];
+          }
 
           // 3) 작성된(재고>0) 카페만 DP_CAFES로 구성
           const builtCafes = Object.keys(stockBySlug).map((slug) => {
