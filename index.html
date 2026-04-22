@@ -9464,12 +9464,13 @@
       //   - 카페 리스트 시트(1Dse0teMt4UGM2T6RnPat7LP40K-cdb8C): 카페 메타(제휴여부, 카페명, slug)
       //   - 일상글 스토어 시트(1GYBkS5R...): 각 행 = 일상글 1건. writer가 발행 성공 시 append.
       //     - A열 날짜(YYYY.MM.DD HH:MM) → 오늘 발행 카운트
-      //     - B열 사용한 카페 → 발행 컨트롤 카페 드롭다운 옵션
       //     - F열 발행 URL → 카페 slug 추출해 카페별 누적 집계
-      //   - 계정 시트(16RS6FA.../'2. 일상글' 탭): B열 제품분류 → 발행 컨트롤 제품 드롭다운 옵션
+      //   - URL 시트(1zZkqN1_...): A열 분류 + C열 사용가능여부=O인 행 → 카페 드롭다운
+      //   - 계정 시트(16RS6FA.../'2. 일상글' 탭): A=O AND D=빈값 인 행의 B열 제품분류 → 제품 드롭다운
       // ═══════════════════════════════════════════════════════════════
       const DP_CAFE_SHEET_ID = "1Dse0teMt4UGM2T6RnPat7LP40K-cdb8C";
       const DP_STORE_SHEET_ID = "1GYBkS5RB_WKvrcE5VRJO14ectfqk2kh5NaBl6_yFD8A";
+      const DP_URL_SHEET_ID = "1zZkqN1_IhfyjxxaVi8G11XROlZDa8GcyVGbVnMm5rPk";
       let DP_CAFES = []; // [{partnerYn, rep, name, slug, url, stock, comment}, ...] — 재고>0만
       let DP_TODAY = 0; // 오늘 발행 개수
       let DP_TOTAL_STOCK = 0; // 전체 재고 합계 (slug 매칭 여부와 관계없이 시트 총 행수)
@@ -9515,7 +9516,7 @@
         if (host) host.innerHTML = '<div class="dp-empty">불러오는 중...</div>';
 
         try {
-          const [cafeRes, storeRes, accountRes] = await Promise.all([
+          const [cafeRes, storeRes, accountRes, urlRes] = await Promise.all([
             fetch(
               `https://docs.google.com/spreadsheets/d/${DP_CAFE_SHEET_ID}/gviz/tq?tqx=out:json&_=${Date.now()}`,
               { cache: "no-store" },
@@ -9524,9 +9525,14 @@
               `https://docs.google.com/spreadsheets/d/${DP_STORE_SHEET_ID}/gviz/tq?tqx=out:json&headers=1&_=${Date.now()}`,
               { cache: "no-store" },
             ),
-            // 계정 시트 '2. 일상글' 탭 — B열 제품분류 unique 수집용
+            // 계정 시트 '2. 일상글' 탭 — A=O AND D=빈값 행의 B열 제품분류 수집
             fetch(
               `https://docs.google.com/spreadsheets/d/16RS6FAvEQelDTcCLjyFlt2zcYlOp9oyEUW9r7BNgGmc/gviz/tq?tqx=out:json&headers=1&sheet=${encodeURIComponent("2. 일상글")}&_=${Date.now()}`,
+              { cache: "no-store" },
+            ),
+            // URL 시트 — A열 분류 + C열 사용가능여부=O인 행에서 카페 수집
+            fetch(
+              `https://docs.google.com/spreadsheets/d/${DP_URL_SHEET_ID}/gviz/tq?tqx=out:json&_=${Date.now()}`,
               { cache: "no-store" },
             ),
           ]);
@@ -9561,12 +9567,11 @@
             };
           });
 
-          // 2) 일상글 스토어 파싱 → slug별 누적 + 오늘 발행 + 카페 옵션 수집
+          // 2) 일상글 스토어 파싱 → slug별 누적 + 오늘 발행 (카페 옵션은 URL 시트로 이동)
           const storeText = await storeRes.text();
           const stockBySlug = {};
           let totalStock = 0;
           let todayCount = 0;
-          const cafeOptionsSet = new Set();
           try {
             const sj = JSON.parse(
               storeText.substring(
@@ -9592,12 +9597,6 @@
                 : "";
               if (dpIsToday(dateStr, todayStr)) todayCount++;
 
-              // B열 사용한 카페 → 드롭다운 옵션 수집
-              const cafeVal = cells[1]
-                ? ((cells[1].f ?? cells[1].v ?? "") + "").trim()
-                : "";
-              if (cafeVal) cafeOptionsSet.add(cafeVal);
-
               // F열 발행 URL(index 5) 또는 B열 사용한 카페(index 1)에서 cafe slug 추출
               const urlCandidates = [cells[5], cells[1]].map((c) =>
                 c ? ((c.f ?? c.v ?? "") + "").trim() : "",
@@ -9616,9 +9615,35 @@
           } catch (e) {
             /* 시트가 비었거나 파싱 실패 시 통과 */
           }
-          DP_CAFE_OPTIONS = Array.from(cafeOptionsSet).sort();
+          // 3) URL 시트 → A열 분류 + C열=O 인 행만 → 카페 드롭다운
+          try {
+            const urlText = await urlRes.text();
+            const uj = JSON.parse(
+              urlText.substring(
+                urlText.indexOf("{"),
+                urlText.lastIndexOf("}") + 1,
+              ),
+            );
+            const cafeSet = new Set();
+            (uj.table.rows || []).forEach((r) => {
+              const cells = r.c || [];
+              const cafeName = cells[0]
+                ? ((cells[0].f ?? cells[0].v ?? "") + "").trim()
+                : "";
+              const avail = cells[2]
+                ? ((cells[2].f ?? cells[2].v ?? "") + "").trim()
+                : "";
+              if (cafeName && avail.toUpperCase() === "O") {
+                cafeSet.add(cafeName);
+              }
+            });
+            DP_CAFE_OPTIONS = Array.from(cafeSet).sort();
+          } catch (e) {
+            console.warn("[dp] URL 시트 카페 파싱 실패:", e);
+            DP_CAFE_OPTIONS = [];
+          }
 
-          // 3) 계정 시트 '2. 일상글' 탭 → B열 제품분류 unique 수집
+          // 4) 계정 시트 '2. 일상글' 탭 → A=O AND D=빈값 인 행의 B열 제품분류
           try {
             const acctText = await accountRes.text();
             const aj = JSON.parse(
@@ -9630,10 +9655,19 @@
             const productSet = new Set();
             (aj.table.rows || []).forEach((r) => {
               const cells = r.c || [];
-              const v = cells[1]
+              const status = cells[0]
+                ? ((cells[0].f ?? cells[0].v ?? "") + "").trim()
+                : "";
+              const product = cells[1]
                 ? ((cells[1].f ?? cells[1].v ?? "") + "").trim()
                 : "";
-              if (v) productSet.add(v);
+              const postDate = cells[3]
+                ? ((cells[3].f ?? cells[3].v ?? "") + "").trim()
+                : "";
+              // A=O AND D 빈값 (= 사용 가능 계정)인 행만
+              if (status.toUpperCase() === "O" && !postDate && product) {
+                productSet.add(product);
+              }
             });
             DP_PRODUCT_OPTIONS = Array.from(productSet).sort();
           } catch (e) {
