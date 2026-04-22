@@ -9433,6 +9433,8 @@
       let DP_CAFE_OPTIONS = []; // 발행 컨트롤 드롭다운: 스토어 시트 B열 unique
       let DP_PRODUCT_OPTIONS = []; // 발행 컨트롤 드롭다운: 스토어 시트 C열 unique
       const DP_WRITER_URL = "http://127.0.0.1:8765"; // writer exe 로컬 서버
+      const DP_N8N_WEBHOOK_URL =
+        "https://qnwkdi111.app.n8n.cloud/webhook/214511ac-f16e-44b1-a36d-919fb49ff1ae"; // n8n 원고 생성 트리거
 
       async function dpInit() {
         dpInited = true;
@@ -9632,26 +9634,44 @@
         if (!(postsPerIp >= 1)) return setMsg("IP당 글 개수를 확인하세요", "err");
 
         btn.disabled = true;
-        setMsg("writer exe에 요청 중...", "");
-        try {
-          const res = await fetch(`${DP_WRITER_URL}/start`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ cafe, product, ipCount, postsPerIp }),
-          });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = await res.json().catch(() => ({}));
-          setMsg(data.message || "작업이 시작되었습니다", "ok");
-        } catch (e) {
-          setMsg(
-            "writer exe가 실행 중이 아니거나 연결할 수 없습니다 (" +
-              (e.message || e) +
-              ")",
-            "err",
-          );
-        } finally {
-          btn.disabled = false;
+        setMsg("writer exe + n8n에 병렬 요청 중...", "");
+
+        const payload = { cafe, product, ipCount, postsPerIp };
+        const headers = { "Content-Type": "application/json" };
+        const body = JSON.stringify(payload);
+
+        // 두 대상에 동시에 POST — 한쪽 실패해도 나머지 진행
+        const [writerRes, n8nRes] = await Promise.allSettled([
+          fetch(`${DP_WRITER_URL}/start`, { method: "POST", headers, body }),
+          fetch(DP_N8N_WEBHOOK_URL, { method: "POST", headers, body }),
+        ]);
+
+        // 결과 해석
+        const writerOk =
+          writerRes.status === "fulfilled" && writerRes.value.ok;
+        const n8nOk = n8nRes.status === "fulfilled" && n8nRes.value.ok;
+
+        let writerMsg = writerOk ? "writer OK" : "writer 실패";
+        if (!writerOk) {
+          if (writerRes.status === "rejected") {
+            writerMsg = `writer 실패 (exe 미실행?: ${writerRes.reason.message || writerRes.reason})`;
+          } else {
+            writerMsg = `writer 실패 (HTTP ${writerRes.value.status})`;
+          }
         }
+
+        let n8nMsg = n8nOk ? "n8n OK" : "n8n 실패";
+        if (!n8nOk) {
+          if (n8nRes.status === "rejected") {
+            n8nMsg = `n8n 실패 (${n8nRes.reason.message || n8nRes.reason})`;
+          } else {
+            n8nMsg = `n8n 실패 (HTTP ${n8nRes.value.status})`;
+          }
+        }
+
+        const kind = writerOk && n8nOk ? "ok" : "err";
+        setMsg(`${writerMsg} / ${n8nMsg}`, kind);
+        btn.disabled = false;
       }
 
       function dpTodayStr() {
