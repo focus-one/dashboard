@@ -7687,6 +7687,24 @@
                 />
               </div>
             </div>
+            <div class="dp-control-grid" style="margin-top: 8px;">
+              <div class="dp-control-field">
+                <label for="dpActionDelayMin">동작 대기 최소(초)</label>
+                <input type="number" id="dpActionDelayMin" min="0" max="300" value="3" />
+              </div>
+              <div class="dp-control-field">
+                <label for="dpActionDelayMax">동작 대기 최대(초)</label>
+                <input type="number" id="dpActionDelayMax" min="0" max="300" value="10" />
+              </div>
+              <div class="dp-control-field">
+                <label for="dpAccountDelayMin">계정 전환 대기 최소(초)</label>
+                <input type="number" id="dpAccountDelayMin" min="0" max="300" value="10" />
+              </div>
+              <div class="dp-control-field">
+                <label for="dpAccountDelayMax">계정 전환 대기 최대(초)</label>
+                <input type="number" id="dpAccountDelayMax" min="0" max="300" value="15" />
+              </div>
+            </div>
             <div class="dp-control-actions">
               <span id="dpStatusMsg" class="dp-status-msg"></span>
               <button
@@ -9665,6 +9683,22 @@
           document.getElementById("dpPostsPerId").value,
           10,
         );
+        const actionDelayMin = parseInt(
+          document.getElementById("dpActionDelayMin").value,
+          10,
+        );
+        const actionDelayMax = parseInt(
+          document.getElementById("dpActionDelayMax").value,
+          10,
+        );
+        const accountDelayMin = parseInt(
+          document.getElementById("dpAccountDelayMin").value,
+          10,
+        );
+        const accountDelayMax = parseInt(
+          document.getElementById("dpAccountDelayMax").value,
+          10,
+        );
 
         const setMsg = (text, kind) => {
           if (!msg) return;
@@ -9676,11 +9710,24 @@
         if (!product) return setMsg("제품을 선택하세요", "err");
         if (!(idCount >= 1)) return setMsg("ID 개수를 확인하세요", "err");
         if (!(postsPerId >= 1)) return setMsg("ID당 글 개수를 확인하세요", "err");
+        if (!(actionDelayMin >= 0 && actionDelayMax >= actionDelayMin))
+          return setMsg("동작 대기 시간을 확인하세요 (min ≤ max)", "err");
+        if (!(accountDelayMin >= 0 && accountDelayMax >= accountDelayMin))
+          return setMsg("계정 전환 대기 시간을 확인하세요 (min ≤ max)", "err");
 
         btn.disabled = true;
         setMsg("writer exe + n8n에 병렬 요청 중...", "");
 
-        const payload = { cafe, product, idCount, postsPerId };
+        const payload = {
+          cafe,
+          product,
+          idCount,
+          postsPerId,
+          actionDelayMin,
+          actionDelayMax,
+          accountDelayMin,
+          accountDelayMax,
+        };
         const headers = { "Content-Type": "application/json" };
         const body = JSON.stringify(payload);
 
