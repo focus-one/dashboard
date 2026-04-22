@@ -994,6 +994,98 @@
         color: #10b981;
         font-size: 10px;
       }
+      /* ⓘ 도움말 아이콘 + 호버 툴팁 */
+      .dp-help-tip {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #e5e7eb;
+        color: #6b7280;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: help;
+        user-select: none;
+      }
+      .dp-help-tip:hover,
+      .dp-help-tip:focus {
+        background: #10b981;
+        color: #fff;
+        outline: none;
+      }
+      .dp-help-popover {
+        position: absolute;
+        top: 24px;
+        left: 0;
+        z-index: 50;
+        min-width: 360px;
+        max-width: 460px;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+        padding: 14px 16px;
+        font-size: 12px;
+        font-weight: 400;
+        line-height: 1.55;
+        color: var(--text-primary);
+        display: none;
+        white-space: normal;
+      }
+      .dp-help-tip:hover .dp-help-popover,
+      .dp-help-tip:focus .dp-help-popover,
+      .dp-help-popover:hover {
+        display: block;
+      }
+      .dp-help-popover h5 {
+        margin: 0 0 6px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #065f46;
+      }
+      .dp-help-popover ul {
+        margin: 4px 0 10px;
+        padding-left: 18px;
+      }
+      .dp-help-popover li {
+        margin-bottom: 3px;
+      }
+      .dp-help-popover code {
+        background: #f3f4f6;
+        padding: 1px 4px;
+        border-radius: 3px;
+        font-size: 11px;
+      }
+      /* 고급 설정 토글 (<details>) */
+      .dp-control-advanced {
+        margin-top: 10px;
+        border-top: 1px dashed var(--border);
+        padding-top: 10px;
+      }
+      .dp-control-advanced > summary {
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-muted);
+        padding: 2px 0;
+        user-select: none;
+        list-style: none;
+      }
+      .dp-control-advanced > summary::before {
+        content: "▶ ";
+        display: inline-block;
+        transition: transform 0.15s;
+        font-size: 9px;
+      }
+      .dp-control-advanced[open] > summary::before {
+        transform: rotate(90deg);
+      }
+      .dp-control-advanced > summary::-webkit-details-marker {
+        display: none;
+      }
       .dp-control-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
@@ -7690,7 +7782,39 @@
 
           <!-- 발행 시작 컨트롤 (writer exe 트리거) -->
           <div class="dp-control-card">
-            <div class="dp-control-title">발행 시작 설정</div>
+            <div class="dp-control-title">
+              발행 시작 설정
+              <span class="dp-help-tip" tabindex="0" aria-label="도움말">
+                ⓘ
+                <div class="dp-help-popover">
+                  <h5>어떤 카페</h5>
+                  <ul>
+                    <li>URL 시트(<code>1zZkqN1_</code>) 읽어 <b>A열 분류=선택한 카페</b> + <b>C열 사용가능여부=O</b>인 첫 URL로 발행</li>
+                  </ul>
+                  <h5>어떤 제품</h5>
+                  <ul>
+                    <li>계정 시트(<code>16RS6FA / 2.일상글</code>) B열 제품분류 매칭</li>
+                    <li>발행 로그 시트 C열 <b>제품명</b>에 그대로 기록</li>
+                  </ul>
+                  <h5>ID 개수 × ID당 일상글 개수</h5>
+                  <ul>
+                    <li>총 <b>N×M 글</b> 발행. IP는 ID 바뀔 때만 변경.</li>
+                    <li>예: ID 2 × 글 3 = 6글 (계정A로 3글 연속 → IP 변경 → 계정B로 3글)</li>
+                  </ul>
+                  <h5>계정 선별 조건 (모두 AND)</h5>
+                  <ul>
+                    <li>A 상태 = <code>O</code></li>
+                    <li>B 제품분류 = 선택한 제품</li>
+                    <li>C 사용할 카페 = 선택한 카페</li>
+                    <li>D 포스팅 날짜 = <b>빈값 또는 24시간 이전</b> (24h 지나면 자동 재사용)</li>
+                  </ul>
+                  <h5>고급 설정</h5>
+                  <ul>
+                    <li>동작 대기 / 계정 전환 대기 시간은 하단 토글에서 조정</li>
+                  </ul>
+                </div>
+              </span>
+            </div>
             <div class="dp-control-grid">
               <div class="dp-control-field">
                 <label for="dpCafeSelect">어떤 카페</label>
@@ -7725,24 +7849,27 @@
                 />
               </div>
             </div>
-            <div class="dp-control-grid" style="margin-top: 8px;">
-              <div class="dp-control-field">
-                <label for="dpActionDelayMin">동작 대기 최소(초)</label>
-                <input type="number" id="dpActionDelayMin" min="0" max="300" value="3" />
+            <details class="dp-control-advanced">
+              <summary>고급 설정 — 동작/계정 전환 대기 시간</summary>
+              <div class="dp-control-grid" style="margin-top: 10px;">
+                <div class="dp-control-field">
+                  <label for="dpActionDelayMin">동작 대기 최소(초)</label>
+                  <input type="number" id="dpActionDelayMin" min="0" max="300" value="3" />
+                </div>
+                <div class="dp-control-field">
+                  <label for="dpActionDelayMax">동작 대기 최대(초)</label>
+                  <input type="number" id="dpActionDelayMax" min="0" max="300" value="10" />
+                </div>
+                <div class="dp-control-field">
+                  <label for="dpAccountDelayMin">계정 전환 대기 최소(초)</label>
+                  <input type="number" id="dpAccountDelayMin" min="0" max="300" value="10" />
+                </div>
+                <div class="dp-control-field">
+                  <label for="dpAccountDelayMax">계정 전환 대기 최대(초)</label>
+                  <input type="number" id="dpAccountDelayMax" min="0" max="300" value="15" />
+                </div>
               </div>
-              <div class="dp-control-field">
-                <label for="dpActionDelayMax">동작 대기 최대(초)</label>
-                <input type="number" id="dpActionDelayMax" min="0" max="300" value="10" />
-              </div>
-              <div class="dp-control-field">
-                <label for="dpAccountDelayMin">계정 전환 대기 최소(초)</label>
-                <input type="number" id="dpAccountDelayMin" min="0" max="300" value="10" />
-              </div>
-              <div class="dp-control-field">
-                <label for="dpAccountDelayMax">계정 전환 대기 최대(초)</label>
-                <input type="number" id="dpAccountDelayMax" min="0" max="300" value="15" />
-              </div>
-            </div>
+            </details>
             <div class="dp-control-actions">
               <span id="dpStatusMsg" class="dp-status-msg"></span>
               <div id="dpLiveLog" class="dp-live-log" title="writer 실시간 로그">
