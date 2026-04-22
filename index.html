@@ -7667,20 +7667,20 @@
                 </select>
               </div>
               <div class="dp-control-field">
-                <label for="dpIpCount">IP 개수</label>
+                <label for="dpIdCount">ID 개수</label>
                 <input
                   type="number"
-                  id="dpIpCount"
+                  id="dpIdCount"
                   min="1"
                   max="50"
                   value="1"
                 />
               </div>
               <div class="dp-control-field">
-                <label for="dpPostsPerIp">IP당 일상글 개수</label>
+                <label for="dpPostsPerId">ID당 일상글 개수</label>
                 <input
                   type="number"
-                  id="dpPostsPerIp"
+                  id="dpPostsPerId"
                   min="1"
                   max="20"
                   value="4"
@@ -9657,12 +9657,12 @@
         const msg = document.getElementById("dpStatusMsg");
         const cafe = document.getElementById("dpCafeSelect").value;
         const product = document.getElementById("dpProductSelect").value;
-        const ipCount = parseInt(
-          document.getElementById("dpIpCount").value,
+        const idCount = parseInt(
+          document.getElementById("dpIdCount").value,
           10,
         );
-        const postsPerIp = parseInt(
-          document.getElementById("dpPostsPerIp").value,
+        const postsPerId = parseInt(
+          document.getElementById("dpPostsPerId").value,
           10,
         );
 
@@ -9674,13 +9674,13 @@
 
         if (!cafe) return setMsg("카페를 선택하세요", "err");
         if (!product) return setMsg("제품을 선택하세요", "err");
-        if (!(ipCount >= 1)) return setMsg("IP 개수를 확인하세요", "err");
-        if (!(postsPerIp >= 1)) return setMsg("IP당 글 개수를 확인하세요", "err");
+        if (!(idCount >= 1)) return setMsg("ID 개수를 확인하세요", "err");
+        if (!(postsPerId >= 1)) return setMsg("ID당 글 개수를 확인하세요", "err");
 
         btn.disabled = true;
         setMsg("writer exe + n8n에 병렬 요청 중...", "");
 
-        const payload = { cafe, product, ipCount, postsPerIp };
+        const payload = { cafe, product, idCount, postsPerId };
         const headers = { "Content-Type": "application/json" };
         const body = JSON.stringify(payload);
 
