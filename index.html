@@ -1059,6 +1059,18 @@
         border-radius: 3px;
         font-size: 11px;
       }
+      /* 사용 가능 계정 카운터 */
+      .dp-account-counter {
+        margin-top: 6px;
+        padding: 6px 10px;
+        background: #f9fafb;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 12px;
+        color: var(--text-muted);
+        display: inline-block;
+      }
+
       /* 고급 설정 토글 (<details>) */
       .dp-control-advanced {
         margin-top: 10px;
@@ -7849,6 +7861,10 @@
                 />
               </div>
             </div>
+            <div class="dp-account-counter">
+              사용 가능 계정: <span id="dpAccountCount">—</span>
+            </div>
+
             <details class="dp-control-advanced">
               <summary>고급 설정 — 동작/계정 전환 대기 시간</summary>
               <div class="dp-control-grid" style="margin-top: 10px;">
@@ -9680,6 +9696,8 @@
       let dpInited = false;
       let DP_CAFE_OPTIONS = []; // 발행 컨트롤 드롭다운: 스토어 시트 B열 unique
       let DP_PRODUCT_OPTIONS = []; // config.json의 products 배열에서 로드
+      let DP_ACCOUNT_ROWS = []; // [{status, product, cafe, date}, ...] — 16RS 계정 행 원본
+      const DP_TWENTY_FOUR_H_MS = 24 * 60 * 60 * 1000;
       // config.json에서 로드 (loadDashboardConfig() 참고). 네트워크 실패 시 아래 기본값 fallback.
       let DP_WRITER_URL = "http://127.0.0.1:8765"; // writer exe 로컬 서버
       let DP_N8N_WEBHOOK_URL =
@@ -9831,7 +9849,9 @@
             DP_CAFE_OPTIONS = [];
           }
 
-          // 4) 계정 시트 '2. 일상글' 탭 → A=O AND D=빈값 인 행의 B열 제품분류
+          // 4) 계정 시트 '2. 일상글' 탭 파싱
+          //    - 제품분류(B) unique → 드롭다운
+          //    - 전체 행 보존 → 사용 가능 계정 수 실시간 계산에 사용
           try {
             const acctText = await accountRes.text();
             const aj = JSON.parse(
@@ -9841,6 +9861,7 @@
               ),
             );
             const productSet = new Set();
+            const accountRows = [];
             (aj.table.rows || []).forEach((r) => {
               const cells = r.c || [];
               const status = cells[0]
@@ -9849,18 +9870,25 @@
               const product = cells[1]
                 ? ((cells[1].f ?? cells[1].v ?? "") + "").trim()
                 : "";
+              const cafe = cells[2]
+                ? ((cells[2].f ?? cells[2].v ?? "") + "").trim()
+                : "";
               const postDate = cells[3]
                 ? ((cells[3].f ?? cells[3].v ?? "") + "").trim()
                 : "";
-              // A=O AND D 빈값 (= 사용 가능 계정)인 행만
-              if (status.toUpperCase() === "O" && !postDate && product) {
+              if (!status && !product && !cafe) return; // 완전 빈 행 스킵
+              accountRows.push({ status, product, cafe, date: postDate });
+              // 제품 드롭다운 옵션 (상태 O + 제품분류 있는 행 기준)
+              if (status.toUpperCase() === "O" && product) {
                 productSet.add(product);
               }
             });
             DP_PRODUCT_OPTIONS = Array.from(productSet).sort();
+            DP_ACCOUNT_ROWS = accountRows;
           } catch (e) {
             console.warn("[dp] 계정 시트 제품분류 파싱 실패:", e);
             DP_PRODUCT_OPTIONS = [];
+            DP_ACCOUNT_ROWS = [];
           }
 
           // 3) 작성된(재고>0) 카페만 DP_CAFES로 구성
@@ -9881,6 +9909,7 @@
           DP_TOTAL_STOCK = totalStock;
           DP_LAST_LOAD = Date.now();
           dpPopulateControlSelects();
+          dpUpdateAccountCounter();
           dpRender();
         } catch (e) {
           console.error("dp load error", e);
@@ -9890,6 +9919,55 @@
               ((e && e.message) || e) +
               "</div>";
         }
+      }
+
+      // MM.DD HH:MM → epoch ms (연도 없음 → 현재 연도, 미래면 작년)
+      function dpParsePostingDate(str) {
+        if (!str) return null;
+        const m = String(str).trim().match(/^(\d{1,2})[.\-/]\s*(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
+        if (!m) return null;
+        const [MM, DD, HH, Min] = [+m[1], +m[2], +m[3], +m[4]];
+        const now = new Date();
+        let d = new Date(now.getFullYear(), MM - 1, DD, HH, Min);
+        if (d.getTime() > now.getTime()) {
+          d = new Date(now.getFullYear() - 1, MM - 1, DD, HH, Min);
+        }
+        return d.getTime();
+      }
+
+      // 조건 맞는 사용 가능 계정 수 반환 (writer.get_accounts와 동일 로직)
+      //   A=O + (cafe 지정 시) C=cafe + (product 지정 시) B=product
+      //   + D 빈값 or 24h 이전
+      function dpCountAvailableAccounts(cafe, product) {
+        const now = Date.now();
+        let count = 0;
+        for (const r of DP_ACCOUNT_ROWS) {
+          if ((r.status || '').toUpperCase() !== 'O') continue;
+          if (product && r.product !== product) continue;
+          if (cafe && r.cafe !== cafe) continue;
+          if (r.date) {
+            const ts = dpParsePostingDate(r.date);
+            if (ts === null) continue; // 파싱 실패 → 안전하게 불가
+            if (now - ts < DP_TWENTY_FOUR_H_MS) continue; // 24h 이내 → 불가
+          }
+          count++;
+        }
+        return count;
+      }
+
+      function dpUpdateAccountCounter() {
+        const el = document.getElementById('dpAccountCount');
+        if (!el) return;
+        const cafe = (document.getElementById('dpCafeSelect')?.value || '').trim();
+        const product = (document.getElementById('dpProductSelect')?.value || '').trim();
+        const total = dpCountAvailableAccounts('', '');
+        if (!cafe && !product) {
+          el.innerHTML = `전체 <b>${total}</b>명`;
+          return;
+        }
+        const filtered = dpCountAvailableAccounts(cafe, product);
+        const label = [cafe, product].filter(Boolean).join(' / ');
+        el.innerHTML = `<b>${label}</b>: <b style="color:${filtered ? '#059669' : '#dc2626'}">${filtered}</b>명 <span style="color:#9ca3af">/ 전체 ${total}</span>`;
       }
 
       function dpPopulateControlSelects() {
@@ -9932,12 +10010,17 @@
         el.addEventListener("blur", apply);
       }
       // 페이지 로드 후 모든 dp-control 숫자 input에 클램프 부착
+      // + 카페/제품 드롭다운 change 시 사용 가능 계정 수 즉시 갱신
       window.addEventListener("DOMContentLoaded", () => {
         ["dpIdCount", "dpPostsPerId",
          "dpActionDelayMin", "dpActionDelayMax",
          "dpAccountDelayMin", "dpAccountDelayMax"].forEach(id => {
           dpClampNumberInput(document.getElementById(id));
         });
+        const cafeSel = document.getElementById("dpCafeSelect");
+        const prodSel = document.getElementById("dpProductSelect");
+        if (cafeSel) cafeSel.addEventListener("change", dpUpdateAccountCounter);
+        if (prodSel) prodSel.addEventListener("change", dpUpdateAccountCounter);
       });
 
       // writer 실시간 로그 + 실행 상태 폴링 (1.5s 간격)
