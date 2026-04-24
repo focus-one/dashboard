@@ -8466,14 +8466,13 @@
                 selectCafeSub(cafeKeyOrProduct, null);
               }
             } else {
-              if (typeof selectNaverSub === "function") {
-                selectNaverSub(sub, null);
-              }
-              // 게시물관리: #naver/manage/<product>/<url>/<view> 복원
+              // 게시물관리: hash 상태를 selectNaverSub 전에 적용 → pmInit 이
+              // 올바른 PM_CURRENT_* 로 pmLoad 시작 (race condition 방지)
               if (sub === "manage" && typeof pmApplyHashState === "function") {
                 pmApplyHashState(cafeKeyOrProduct, urlTypeOrExtra, view);
-                // 복원된 상태로 데이터 재로딩
-                if (typeof pmLoad === "function") pmLoad();
+              }
+              if (typeof selectNaverSub === "function") {
+                selectNaverSub(sub, null);
               }
             }
           }
@@ -9883,7 +9882,29 @@
         }
       }
 
-      // SSE 연결 — 서버가 상태 푸시, 끊김 시 onerror
+      // SSE 연결 — 서버가 상태 푸시, 끊김 시 onerror + watchdog
+      //   watchdog: state/ping 이벤트 수신 시 타이머 리셋. 15초 무응답이면 강제 🔴.
+      //   (서버는 heartbeat 5초 간격 'ping' event 전송)
+      const SSE_WATCHDOG_MS = 15000;
+      let _pmSseWatchdog = null;
+
+      function _pmResetWatchdog() {
+        if (_pmSseWatchdog) clearTimeout(_pmSseWatchdog);
+        _pmSseWatchdog = setTimeout(() => {
+          if (_pmConnected) {
+            _pmConnected = false;
+            _pmSetStatus("🔴 응답 없음 (자동 재시도)", "err");
+          }
+        }, SSE_WATCHDOG_MS);
+      }
+
+      function _pmStopWatchdog() {
+        if (_pmSseWatchdog) {
+          clearTimeout(_pmSseWatchdog);
+          _pmSseWatchdog = null;
+        }
+      }
+
       function _pmStartEventStream() {
         if (!_pmActiveBase) return;
         _pmStopEventStream();
@@ -9896,8 +9917,10 @@
         _pmEventSource.onopen = () => {
           _pmConnected = true;
           _pmSetStatus("🟢 연결됨", "ok");
+          _pmResetWatchdog();
         };
         _pmEventSource.addEventListener("state", (ev) => {
+          _pmResetWatchdog();
           try {
             const st = JSON.parse(ev.data);
             _pmConnected = true;
@@ -9908,6 +9931,14 @@
             }
           } catch (_) {}
         });
+        _pmEventSource.addEventListener("ping", () => {
+          // heartbeat — 연결 살아있음 확인용, watchdog 만 리셋
+          _pmResetWatchdog();
+          if (!_pmConnected) {
+            _pmConnected = true;
+            _pmSetStatus("🟢 연결됨", "ok");
+          }
+        });
         _pmEventSource.onerror = () => {
           // EventSource 는 자동 재연결 — 끊김 상태만 표시
           _pmConnected = false;
@@ -9916,6 +9947,7 @@
       }
 
       function _pmStopEventStream() {
+        _pmStopWatchdog();
         if (_pmEventSource) {
           try { _pmEventSource.close(); } catch (_) {}
           _pmEventSource = null;
