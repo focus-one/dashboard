@@ -12820,9 +12820,15 @@
       }
 
       // 초기 페이지 복원 (새로고침 시 현재 페이지 유지)
+      //  - hash 에 경로가 있으면 dashRouteFromHash 가 DOMContentLoaded 때
+      //    정확히 복원하므로 showPage 는 호출하지 않는다 (호출 시 dashSetHash
+      //    가 해시를 단순 #page 로 덮어써 경로 유실됨).
+      //  - hash 비어있을 때만 localStorage 기반 fallback.
       const _savedPage =
         localStorage.getItem("focusone_current_page") || "home";
-      showPage(_savedPage);
+      if (!window.location.hash) {
+        showPage(_savedPage);
+      }
       // 활성 탭 표시 복원
       if (_savedPage === "home") {
         document.querySelector(".home-btn").classList.add("active");
