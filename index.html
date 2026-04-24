@@ -7668,21 +7668,6 @@
                 </svg>
                 시트 열기
               </a>
-              <button
-                class="km-refresh"
-                onclick="pmLoad(true)"
-                title="시트 다시 불러오기"
-              >
-                새로고침
-              </button>
-              <button
-                id="pmRefreshStatusBtn"
-                class="pm-action-btn pm-action-refresh"
-                onclick="pmRefreshStatus()"
-                title="CafeMaster가 각 URL 상태를 스캔해 시트 갱신"
-              >
-                ↻ 상태 최신화
-              </button>
               <select
                 id="pmPublishProduct"
                 class="pm-action-select"
@@ -9657,35 +9642,6 @@
           if (meta && meta.description) opt.title = meta.description;
           sel.appendChild(opt);
         });
-      }
-
-      async function pmRefreshStatus() {
-        const btn = document.getElementById("pmRefreshStatusBtn");
-        btn.disabled = true;
-        pmSetActionMsg("상태 최신화 요청 중...", "");
-        try {
-          const res = await dpFetchFallback(
-            DP_CAFEMASTER_URLS,
-            "/refresh-status",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({}),
-            },
-            "cafemaster"
-          );
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok)
-            throw new Error(data.message || `HTTP ${res.status}`);
-          pmSetActionMsg(data.message || "상태 최신화 요청 전달됨", "ok");
-        } catch (e) {
-          pmSetActionMsg(
-            "실패: " + (e.message || e) + " (CafeMaster 연결 확인)",
-            "err"
-          );
-        } finally {
-          btn.disabled = false;
-        }
       }
 
       async function pmPublish() {
