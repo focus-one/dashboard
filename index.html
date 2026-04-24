@@ -9905,7 +9905,13 @@
         pmSetActionMsg(`${cafe}/${product} 발행 요청 중...`, "");
 
         const headers = { "Content-Type": "application/json" };
-        const body = JSON.stringify({ cafe, product });
+        // callback_base_url: CafeMaster가 n8n에게 넘길 콜백 URL 베이스 (대시보드에서 기 아는 CafeMaster URL)
+        const callbackBase =
+          (_DP_LAST_OK.cafemaster || DP_CAFEMASTER_URLS[0] || "").replace(
+            /\/$/,
+            "",
+          );
+        const body = JSON.stringify({ cafe, product, callback_base_url: callbackBase });
 
         // n8n webhook + CafeMaster /start 병렬 호출
         const tasks = [
