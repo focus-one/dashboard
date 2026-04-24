@@ -441,13 +441,14 @@
         font-weight: 700;
       }
       .km-refresh {
-        width: 32px;
-        height: 32px;
+        padding: 6px 12px;
         border: 1px solid var(--border);
         background: var(--surface);
-        border-radius: 8px;
+        border-radius: 6px;
         cursor: pointer;
-        font-size: 14px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text, #111);
         transition: all 0.15s;
       }
       .km-refresh:hover {
@@ -7647,10 +7648,34 @@
               <button
                 class="km-refresh"
                 onclick="pmLoad(true)"
-                title="새로고침"
+                title="시트 다시 불러오기"
               >
-                🔄
+                새로고침
               </button>
+              <button
+                id="pmRefreshStatusBtn"
+                class="pm-action-btn pm-action-refresh"
+                onclick="pmRefreshStatus()"
+                title="CafeMaster가 각 URL 상태를 스캔해 시트 갱신"
+              >
+                ↻ 상태 최신화
+              </button>
+              <select
+                id="pmPublishProduct"
+                class="pm-action-select"
+                title="발행할 제품 선택"
+              >
+                <option value="">제품 선택...</option>
+              </select>
+              <button
+                id="pmPublishBtn"
+                class="pm-action-btn pm-action-publish"
+                onclick="pmPublish()"
+                title="CafeMaster + n8n 트리거"
+              >
+                ▶ 글 발행
+              </button>
+              <span id="pmActionMsg" class="pm-action-msg"></span>
             </div>
           </div>
 
@@ -7702,34 +7727,6 @@
             >
               블로그 URL
             </button>
-          </div>
-
-          <!-- 액션 버튼 (상태 최신화 / 제품 드롭다운 / 글 발행) -->
-          <div class="pm-actions">
-            <button
-              id="pmRefreshStatusBtn"
-              class="pm-action-btn pm-action-refresh"
-              onclick="pmRefreshStatus()"
-              title="CafeMaster가 각 URL 상태를 스캔해 시트 갱신"
-            >
-              ↻ 상태 최신화
-            </button>
-            <select
-              id="pmPublishProduct"
-              class="pm-action-select"
-              title="발행할 제품 선택"
-            >
-              <option value="">제품 선택...</option>
-            </select>
-            <button
-              id="pmPublishBtn"
-              class="pm-action-btn pm-action-publish"
-              onclick="pmPublish()"
-              title="CafeMaster + n8n 트리거"
-            >
-              ▶ 글 발행
-            </button>
-            <span id="pmActionMsg" class="pm-action-msg"></span>
           </div>
 
           <!-- 뷰 모드 + 요약 카운트 -->

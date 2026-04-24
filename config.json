@@ -4,16 +4,15 @@
   "일상글관리": {
     "_description": "writer.exe 연동 — 일상글 자동 발행",
     "apiUrls": [
-      "https://desktop-6hpfhqs.tail7fdacf.ts.net"
+      "https://desktop-6hpfhqs.tail7fdacf.ts.net",
+      "https://bibliography-writers-exhibition-worm.trycloudflare.com"
     ],
     "n8nWebhook": "https://qnwkdi111.app.n8n.cloud/webhook/214511ac-f16e-44b1-a36d-919fb49ff1ae"
   },
 
   "게시물관리": {
     "_description": "CafeMaster.exe 연동 — 제품별 글 발행",
-    "apiUrls": [
-      "http://127.0.0.1:8766"
-    ],
+    "apiUrls": ["http://127.0.0.1:8766"],
     "products": {
       "디토락스": {
         "description": "",
