@@ -7677,6 +7677,13 @@
                 🔌 연결
               </button>
               <select
+                id="pmPublishCafe"
+                class="pm-action-select"
+                title="발행할 카페 선택"
+              >
+                <option value="">카페 선택...</option>
+              </select>
+              <select
                 id="pmPublishProduct"
                 class="pm-action-select"
                 title="발행할 제품 선택"
@@ -9636,22 +9643,46 @@
         el.className = "pm-action-msg" + (kind ? " " + kind : "");
       }
 
-      // config 로드 후 제품 드롭다운에 옵션 주입 (config에 products 없어도 기본 4개 노출)
-      function pmPopulateProductSelect() {
-        const sel = document.getElementById("pmPublishProduct");
+      // 카페/제품 드롭다운 — 서버 연결 후 /options 로 채움
+      let _pmConnected = false;
+
+      function _pmSetSelectState(selId, items, enabled, disconnectedText) {
+        const sel = document.getElementById(selId);
         if (!sel) return;
-        const products =
-          DP_PM_PRODUCTS && Object.keys(DP_PM_PRODUCTS).length
-            ? DP_PM_PRODUCTS
-            : { 자이릭스: {}, 디토락스: {}, 트라다필: {}, 이소큐텐: {} };
-        sel.innerHTML = '<option value="">제품 선택...</option>';
-        Object.entries(products).forEach(([name, meta]) => {
-          const opt = document.createElement("option");
-          opt.value = name;
-          opt.textContent = name;
-          if (meta && meta.description) opt.title = meta.description;
-          sel.appendChild(opt);
-        });
+        if (enabled && items && items.length) {
+          const first = selId === "pmPublishCafe" ? "카페 선택..." : "제품 선택...";
+          sel.innerHTML = `<option value="">${first}</option>`;
+          items.forEach((name) => {
+            const opt = document.createElement("option");
+            opt.value = name;
+            opt.textContent = name;
+            sel.appendChild(opt);
+          });
+          sel.disabled = false;
+        } else {
+          sel.innerHTML = `<option value="">${disconnectedText}</option>`;
+          sel.disabled = true;
+        }
+      }
+
+      function pmSetDisconnectedDropdowns() {
+        _pmSetSelectState(
+          "pmPublishCafe",
+          [],
+          false,
+          "⚠️ 서버에 먼저 연결하세요 (왼쪽 🔌 연결)"
+        );
+        _pmSetSelectState(
+          "pmPublishProduct",
+          [],
+          false,
+          "⚠️ 서버에 먼저 연결하세요 (왼쪽 🔌 연결)"
+        );
+      }
+
+      function pmSetConnectedDropdowns(cafes, products) {
+        _pmSetSelectState("pmPublishCafe", cafes, true, "");
+        _pmSetSelectState("pmPublishProduct", products, true, "");
       }
 
       // 게시물관리 서버 health 주기 재확인 (연결 후 15초 간격)
@@ -9673,38 +9704,66 @@
         btn.disabled = true;
         btn.textContent = "🔌 연결 중...";
         btn.classList.remove("dp-connected");
+        pmSetActionMsg("서버 확인 중...", "");
         try {
-          const res = await dpFetchFallback(
+          // 1) /health
+          const healthRes = await dpFetchFallback(
             DP_CAFEMASTER_URLS,
             "/health",
             { cache: "no-store" },
             "cafemaster"
           );
-          if (!res.ok) throw new Error("HTTP " + res.status);
-          const data = await res.json().catch(() => ({}));
+          if (!healthRes.ok) throw new Error("health HTTP " + healthRes.status);
+
+          // 2) /options — 시트에서 카페/제품 목록 가져옴
+          pmSetActionMsg("시트에서 카페/제품 목록 불러오는 중...", "");
+          const optRes = await dpFetchFallback(
+            DP_CAFEMASTER_URLS,
+            "/options",
+            { cache: "no-store" },
+            "cafemaster"
+          );
+          if (!optRes.ok) throw new Error("options HTTP " + optRes.status);
+          const opts = await optRes.json();
+          if (!opts.ok) throw new Error(opts.message || "options failed");
+          const cafes = opts.cafes || [];
+          const products = opts.products || [];
+
+          // 3) 드롭다운 채움 + 연결 완료 표시
+          pmSetConnectedDropdowns(cafes, products);
+          _pmConnected = true;
           btn.textContent = "✓ 연결됨";
           btn.classList.add("dp-connected");
           pmSetActionMsg(
-            "CafeMaster 연결 OK" + (data.message ? ` (${data.message})` : ""),
+            `연결 완료 (카페 ${cafes.length}개, 제품 ${products.length}개)`,
             "ok"
           );
-          _pmStartHealthLoop(); // 성공 후 주기 재확인 시작
+          _pmStartHealthLoop();
         } catch (e) {
+          _pmConnected = false;
+          pmSetDisconnectedDropdowns();
           btn.textContent = "🔌 연결 실패 — 재시도";
+          btn.classList.remove("dp-connected");
           pmSetActionMsg(
             "연결 실패: " + (e.message || e) + " (서버/URL 확인)",
             "err"
           );
-          _pmStopHealthLoop(); // 실패 시 루프 정지
+          _pmStopHealthLoop();
         } finally {
           btn.disabled = false;
         }
       }
 
       async function pmPublish() {
-        const sel = document.getElementById("pmPublishProduct");
+        const cafeSel = document.getElementById("pmPublishCafe");
+        const prodSel = document.getElementById("pmPublishProduct");
         const btn = document.getElementById("pmPublishBtn");
-        const product = sel && sel.value;
+        const cafe = cafeSel && cafeSel.value;
+        const product = prodSel && prodSel.value;
+        if (!cafe) {
+          pmSetActionMsg("카페를 먼저 선택하세요", "err");
+          return;
+        }
         if (!product) {
           pmSetActionMsg("제품을 먼저 선택하세요", "err");
           return;
@@ -9712,14 +9771,15 @@
         const meta = (DP_PM_PRODUCTS && DP_PM_PRODUCTS[product]) || {};
         const n8nWebhook = meta.n8nWebhook || "";
 
-        if (!confirm(`"${product}" 글 발행을 시작할까요?`)) return;
+        if (!confirm(`"${cafe} / ${product}" 글 발행을 시작할까요?`)) return;
 
         btn.disabled = true;
-        sel.disabled = true;
-        pmSetActionMsg(`${product} 발행 요청 중...`, "");
+        cafeSel.disabled = true;
+        prodSel.disabled = true;
+        pmSetActionMsg(`${cafe}/${product} 발행 요청 중...`, "");
 
         const headers = { "Content-Type": "application/json" };
-        const body = JSON.stringify({ product });
+        const body = JSON.stringify({ cafe, product });
 
         // n8n webhook + CafeMaster /start 병렬 호출
         const tasks = [
@@ -9764,12 +9824,13 @@
           }
           const allOk = (cm?.ok) && (!n8nWebhook || n8?.ok);
           pmSetActionMsg(
-            `${product}: ${parts.join(" · ")}`,
+            `${cafe}/${product}: ${parts.join(" · ")}`,
             allOk ? "ok" : "err"
           );
         } finally {
           btn.disabled = false;
-          sel.disabled = false;
+          cafeSel.disabled = false;
+          prodSel.disabled = false;
         }
       }
 
@@ -10113,8 +10174,8 @@
           console.warn("[config] load failed, using defaults:", e);
         } finally {
           try {
-            if (typeof pmPopulateProductSelect === "function")
-              pmPopulateProductSelect();
+            if (typeof pmSetDisconnectedDropdowns === "function")
+              pmSetDisconnectedDropdowns();
           } catch (_) {}
         }
       })();
