@@ -301,10 +301,9 @@
       .cl-row-head,
       .cl-row {
         display: grid;
-        grid-template-columns: 90px 90px minmax(180px, 1.4fr) minmax(
-            240px,
-            1.8fr
-          ) 110px 90px;
+        grid-template-columns:
+          90px 90px minmax(180px, 1.4fr) minmax(240px, 1.8fr)
+          110px 90px;
         align-items: center;
         gap: 12px;
         padding: 10px 14px;
@@ -989,10 +988,9 @@
       /* 월 본문 내 게시물 리스트 — 제품 분류 컬럼 제거 (상단 제품 탭으로 대체됨) */
       .pm-post-row {
         display: grid;
-        grid-template-columns: 100px minmax(120px, 0.9fr) minmax(
-            220px,
-            1.8fr
-          ) 80px 100px 82px 82px;
+        grid-template-columns:
+          100px minmax(120px, 0.9fr) minmax(220px, 1.8fr)
+          80px 100px 82px 82px;
         gap: 10px;
         align-items: center;
         padding: 8px 18px 8px 40px;
@@ -1028,10 +1026,9 @@
       }
       .pm-col-head {
         display: grid;
-        grid-template-columns: 90px 110px minmax(140px, 1fr) minmax(
-            240px,
-            2fr
-          ) 90px 110px;
+        grid-template-columns:
+          90px 110px minmax(140px, 1fr) minmax(240px, 2fr)
+          90px 110px;
         gap: 10px;
         padding: 6px 18px 6px 40px;
         font-size: 11px;
@@ -5062,10 +5059,9 @@
       .pgm-head-row,
       .pgm-row {
         display: grid;
-        grid-template-columns: 100px minmax(180px, 1.5fr) 60px minmax(
-            260px,
-            2.2fr
-          ) minmax(180px, 1.3fr);
+        grid-template-columns:
+          100px minmax(180px, 1.5fr) 60px minmax(260px, 2.2fr)
+          minmax(180px, 1.3fr);
         gap: 10px;
         align-items: center;
         padding: 10px 16px;
@@ -5134,10 +5130,9 @@
       @media (max-width: 1100px) {
         .pgm-head-row,
         .pgm-row {
-          grid-template-columns: 90px minmax(160px, 1.3fr) 56px minmax(
-              200px,
-              2fr
-            ) minmax(140px, 1fr);
+          grid-template-columns:
+            90px minmax(160px, 1.3fr) 56px minmax(200px, 2fr)
+            minmax(140px, 1fr);
           gap: 8px;
         }
       }
@@ -8008,28 +8003,43 @@
                 <div class="dp-help-popover">
                   <h5>어떤 카페</h5>
                   <ul>
-                    <li>URL 시트(<code>1zZkqN1_</code>) 읽어 <b>A열 분류=선택한 카페</b> + <b>C열 사용가능여부=O</b>인 첫 URL로 발행</li>
+                    <li>
+                      URL 시트(<code>1zZkqN1_</code>) 읽어
+                      <b>A열 분류=선택한 카페</b> + <b>C열 사용가능여부=O</b>인
+                      첫 URL로 발행
+                    </li>
                   </ul>
                   <h5>어떤 제품</h5>
                   <ul>
-                    <li>계정 시트(<code>16RS6FA / 2.일상글</code>) B열 제품분류 매칭</li>
+                    <li>
+                      계정 시트(<code>16RS6FA / 2.일상글</code>) B열 제품분류
+                      매칭
+                    </li>
                     <li>발행 로그 시트 C열 <b>제품명</b>에 그대로 기록</li>
                   </ul>
                   <h5>ID 개수 × ID당 일상글 개수</h5>
                   <ul>
                     <li>총 <b>N×M 글</b> 발행. IP는 ID 바뀔 때만 변경.</li>
-                    <li>예: ID 2 × 글 3 = 6글 (계정A로 3글 연속 → IP 변경 → 계정B로 3글)</li>
+                    <li>
+                      예: ID 2 × 글 3 = 6글 (계정A로 3글 연속 → IP 변경 →
+                      계정B로 3글)
+                    </li>
                   </ul>
                   <h5>계정 선별 조건 (모두 AND)</h5>
                   <ul>
                     <li>A 상태 = <code>O</code></li>
                     <li>B 제품분류 = 선택한 제품</li>
                     <li>C 사용할 카페 = 선택한 카페</li>
-                    <li>D 포스팅 날짜 = <b>빈값 또는 24시간 이전</b> (24h 지나면 자동 재사용)</li>
+                    <li>
+                      D 포스팅 날짜 = <b>빈값 또는 24시간 이전</b> (24h 지나면
+                      자동 재사용)
+                    </li>
                   </ul>
                   <h5>고급 설정</h5>
                   <ul>
-                    <li>동작 대기 / 계정 전환 대기 시간은 하단 토글에서 조정</li>
+                    <li>
+                      동작 대기 / 계정 전환 대기 시간은 하단 토글에서 조정
+                    </li>
                   </ul>
                 </div>
               </span>
@@ -8074,22 +8084,46 @@
 
             <details class="dp-control-advanced">
               <summary>고급 설정 — 동작/계정 전환 대기 시간</summary>
-              <div class="dp-control-grid" style="margin-top: 10px;">
+              <div class="dp-control-grid" style="margin-top: 10px">
                 <div class="dp-control-field">
                   <label for="dpActionDelayMin">동작 대기 최소(초)</label>
-                  <input type="number" id="dpActionDelayMin" min="0" max="300" value="3" />
+                  <input
+                    type="number"
+                    id="dpActionDelayMin"
+                    min="0"
+                    max="300"
+                    value="3"
+                  />
                 </div>
                 <div class="dp-control-field">
                   <label for="dpActionDelayMax">동작 대기 최대(초)</label>
-                  <input type="number" id="dpActionDelayMax" min="0" max="300" value="10" />
+                  <input
+                    type="number"
+                    id="dpActionDelayMax"
+                    min="0"
+                    max="300"
+                    value="10"
+                  />
                 </div>
                 <div class="dp-control-field">
                   <label for="dpAccountDelayMin">계정 전환 대기 최소(초)</label>
-                  <input type="number" id="dpAccountDelayMin" min="0" max="300" value="10" />
+                  <input
+                    type="number"
+                    id="dpAccountDelayMin"
+                    min="0"
+                    max="300"
+                    value="10"
+                  />
                 </div>
                 <div class="dp-control-field">
                   <label for="dpAccountDelayMax">계정 전환 대기 최대(초)</label>
-                  <input type="number" id="dpAccountDelayMax" min="0" max="300" value="15" />
+                  <input
+                    type="number"
+                    id="dpAccountDelayMax"
+                    min="0"
+                    max="300"
+                    value="15"
+                  />
                 </div>
               </div>
             </details>
@@ -8097,7 +8131,11 @@
               <span id="dpStatusMsg" class="dp-status-msg"></span>
               <details id="dpLogPanel" class="dp-log-panel">
                 <summary>
-                  <div id="dpLiveLog" class="dp-live-log" title="클릭해서 이 실행의 로그 전체 보기">
+                  <div
+                    id="dpLiveLog"
+                    class="dp-live-log"
+                    title="클릭해서 이 실행의 로그 전체 보기"
+                  >
                     연결 안 됨<span class="dp-log-toggle-hint"></span>
                   </div>
                 </summary>
@@ -8393,7 +8431,8 @@
 
           if (!page) {
             // hash 없으면 마지막 페이지 또는 home
-            const last = localStorage.getItem("focusone_current_page") || "home";
+            const last =
+              localStorage.getItem("focusone_current_page") || "home";
             showPage(last);
             return;
           }
@@ -9700,7 +9739,8 @@
         const sel = document.getElementById(selId);
         if (!sel) return;
         if (enabled && items && items.length) {
-          const first = selId === "pmPublishCafe" ? "카페 선택..." : "제품 선택...";
+          const first =
+            selId === "pmPublishCafe" ? "카페 선택..." : "제품 선택...";
           sel.innerHTML = `<option value="">${first}</option>`;
           items.forEach((name) => {
             const opt = document.createElement("option");
@@ -9720,13 +9760,13 @@
           "pmPublishCafe",
           [],
           false,
-          "⚠️ 서버에 먼저 연결하세요 (왼쪽 🔌 연결)"
+          "⚠️ 서버에 먼저 연결하세요.",
         );
         _pmSetSelectState(
           "pmPublishProduct",
           [],
           false,
-          "⚠️ 서버에 먼저 연결하세요 (왼쪽 🔌 연결)"
+          "⚠️ 서버에 먼저 연결하세요.",
         );
       }
 
@@ -9761,7 +9801,7 @@
             DP_CAFEMASTER_URLS,
             "/health",
             { cache: "no-store" },
-            "cafemaster"
+            "cafemaster",
           );
           if (!healthRes.ok) throw new Error("health HTTP " + healthRes.status);
 
@@ -9771,7 +9811,7 @@
             DP_CAFEMASTER_URLS,
             "/options",
             { cache: "no-store" },
-            "cafemaster"
+            "cafemaster",
           );
           if (!optRes.ok) throw new Error("options HTTP " + optRes.status);
           const opts = await optRes.json();
@@ -9786,7 +9826,7 @@
           btn.classList.add("dp-connected");
           pmSetActionMsg(
             `연결 완료 (카페 ${cafes.length}개, 제품 ${products.length}개)`,
-            "ok"
+            "ok",
           );
           _pmStartHealthLoop();
         } catch (e) {
@@ -9796,7 +9836,7 @@
           btn.classList.remove("dp-connected");
           pmSetActionMsg(
             "연결 실패: " + (e.message || e) + " (서버/URL 확인)",
-            "err"
+            "err",
           );
           _pmStopHealthLoop();
         } finally {
@@ -9837,7 +9877,7 @@
             DP_CAFEMASTER_URLS,
             "/start",
             { method: "POST", headers, body },
-            "cafemaster"
+            "cafemaster",
           )
             .then(async (r) => {
               const d = await r.json().catch(() => ({}));
@@ -9853,7 +9893,7 @@
           tasks.push(
             fetch(n8nWebhook, { method: "POST", headers, body })
               .then((r) => ({ who: "n8n", ok: r.ok, status: r.status }))
-              .catch((e) => ({ who: "n8n", ok: false, err: e.message || e }))
+              .catch((e) => ({ who: "n8n", ok: false, err: e.message || e })),
           );
         }
 
@@ -9865,17 +9905,17 @@
           parts.push(
             cm && cm.ok
               ? `CafeMaster ✓`
-              : `CafeMaster ✗ (${(cm && (cm.data?.message || cm.err)) || "실패"})`
+              : `CafeMaster ✗ (${(cm && (cm.data?.message || cm.err)) || "실패"})`,
           );
           if (n8nWebhook) {
             parts.push(n8 && n8.ok ? "n8n ✓" : `n8n ✗`);
           } else {
             parts.push("n8n 설정 없음");
           }
-          const allOk = (cm?.ok) && (!n8nWebhook || n8?.ok);
+          const allOk = cm?.ok && (!n8nWebhook || n8?.ok);
           pmSetActionMsg(
             `${cafe}/${product}: ${parts.join(" · ")}`,
-            allOk ? "ok" : "err"
+            allOk ? "ok" : "err",
           );
         } finally {
           btn.disabled = false;
@@ -10249,27 +10289,28 @@
             DP_WRITER_URLS,
             "/cafes",
             { cache: "no-store" },
-            "writer"
+            "writer",
           )
             .then((r) => (r.ok ? r.json() : { cafes: [] }))
             .catch(() => ({ cafes: [] }));
 
-          const [cafeRes, storeRes, accountRes, writerCafes] = await Promise.all([
-            fetch(
-              `https://docs.google.com/spreadsheets/d/${DP_CAFE_SHEET_ID}/gviz/tq?tqx=out:json&_=${Date.now()}`,
-              { cache: "no-store" },
-            ),
-            fetch(
-              `https://docs.google.com/spreadsheets/d/${DP_STORE_SHEET_ID}/gviz/tq?tqx=out:json&headers=1&_=${Date.now()}`,
-              { cache: "no-store" },
-            ),
-            // 계정 시트 '2. 일상글' 탭 — A=O AND D=빈값 행의 B열 제품분류 수집
-            fetch(
-              `https://docs.google.com/spreadsheets/d/16RS6FAvEQelDTcCLjyFlt2zcYlOp9oyEUW9r7BNgGmc/gviz/tq?tqx=out:json&headers=1&sheet=${encodeURIComponent("2. 일상글")}&_=${Date.now()}`,
-              { cache: "no-store" },
-            ),
-            writerCafesPromise,
-          ]);
+          const [cafeRes, storeRes, accountRes, writerCafes] =
+            await Promise.all([
+              fetch(
+                `https://docs.google.com/spreadsheets/d/${DP_CAFE_SHEET_ID}/gviz/tq?tqx=out:json&_=${Date.now()}`,
+                { cache: "no-store" },
+              ),
+              fetch(
+                `https://docs.google.com/spreadsheets/d/${DP_STORE_SHEET_ID}/gviz/tq?tqx=out:json&headers=1&_=${Date.now()}`,
+                { cache: "no-store" },
+              ),
+              // 계정 시트 '2. 일상글' 탭 — A=O AND D=빈값 행의 B열 제품분류 수집
+              fetch(
+                `https://docs.google.com/spreadsheets/d/16RS6FAvEQelDTcCLjyFlt2zcYlOp9oyEUW9r7BNgGmc/gviz/tq?tqx=out:json&headers=1&sheet=${encodeURIComponent("2. 일상글")}&_=${Date.now()}`,
+                { cache: "no-store" },
+              ),
+              writerCafesPromise,
+            ]);
 
           // 1) 카페 리스트 파싱 → slug→meta 맵
           const cafeText = await cafeRes.text();
@@ -10400,7 +10441,9 @@
             });
             DP_PRODUCT_OPTIONS = Array.from(productSet).sort();
             DP_ACCOUNT_ROWS = accountRows;
-            console.log(`[dp] 계정 행 수집: ${accountRows.length}개 (ID 있는 행만)`);
+            console.log(
+              `[dp] 계정 행 수집: ${accountRows.length}개 (ID 있는 행만)`,
+            );
           } catch (e) {
             console.warn("[dp] 계정 시트 제품분류 파싱 실패:", e);
             DP_PRODUCT_OPTIONS = [];
@@ -10440,7 +10483,9 @@
       // MM.DD HH:MM → epoch ms (연도 없음 → 현재 연도, 미래면 작년)
       function dpParsePostingDate(str) {
         if (!str) return null;
-        const m = String(str).trim().match(/^(\d{1,2})[.\-/]\s*(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
+        const m = String(str)
+          .trim()
+          .match(/^(\d{1,2})[.\-/]\s*(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
         if (!m) return null;
         const [MM, DD, HH, Min] = [+m[1], +m[2], +m[3], +m[4]];
         const now = new Date();
@@ -10458,7 +10503,7 @@
         const now = Date.now();
         let count = 0;
         for (const r of DP_ACCOUNT_ROWS) {
-          if ((r.status || '').toUpperCase() !== 'O') continue;
+          if ((r.status || "").toUpperCase() !== "O") continue;
           if (product && r.product !== product) continue;
           if (cafe && r.cafe !== cafe) continue;
           if (r.date) {
@@ -10472,18 +10517,22 @@
       }
 
       function dpUpdateAccountCounter() {
-        const el = document.getElementById('dpAccountCount');
+        const el = document.getElementById("dpAccountCount");
         if (!el) return;
-        const cafe = (document.getElementById('dpCafeSelect')?.value || '').trim();
-        const product = (document.getElementById('dpProductSelect')?.value || '').trim();
-        const total = dpCountAvailableAccounts('', '');
+        const cafe = (
+          document.getElementById("dpCafeSelect")?.value || ""
+        ).trim();
+        const product = (
+          document.getElementById("dpProductSelect")?.value || ""
+        ).trim();
+        const total = dpCountAvailableAccounts("", "");
         if (!cafe && !product) {
           el.innerHTML = `전체 <b>${total}</b>명`;
           return;
         }
         const filtered = dpCountAvailableAccounts(cafe, product);
-        const label = [cafe, product].filter(Boolean).join(' / ');
-        el.innerHTML = `<b>${label}</b>: <b style="color:${filtered ? '#059669' : '#dc2626'}">${filtered}</b>명 <span style="color:#9ca3af">/ 전체 ${total}</span>`;
+        const label = [cafe, product].filter(Boolean).join(" / ");
+        el.innerHTML = `<b>${label}</b>: <b style="color:${filtered ? "#059669" : "#dc2626"}">${filtered}</b>명 <span style="color:#9ca3af">/ 전체 ${total}</span>`;
       }
 
       function dpPopulateControlSelects() {
@@ -10528,9 +10577,14 @@
       // 페이지 로드 후 모든 dp-control 숫자 input에 클램프 부착
       // + 카페/제품 드롭다운 change 시 사용 가능 계정 수 즉시 갱신
       window.addEventListener("DOMContentLoaded", () => {
-        ["dpIdCount", "dpPostsPerId",
-         "dpActionDelayMin", "dpActionDelayMax",
-         "dpAccountDelayMin", "dpAccountDelayMax"].forEach(id => {
+        [
+          "dpIdCount",
+          "dpPostsPerId",
+          "dpActionDelayMin",
+          "dpActionDelayMax",
+          "dpAccountDelayMin",
+          "dpAccountDelayMax",
+        ].forEach((id) => {
           dpClampNumberInput(document.getElementById(id));
         });
         const cafeSel = document.getElementById("dpCafeSelect");
@@ -10540,7 +10594,7 @@
       });
 
       // writer 상태 + 로그 — 연결 전엔 버튼으로 1회 요청, 연결 후엔 15초마다 health 자동 재확인
-      let _dpLastLogLine = '';
+      let _dpLastLogLine = "";
       let _dpLastHistoryLen = 0;
       let _dpHealthTimer = null;
 
@@ -10557,43 +10611,44 @@
       }
 
       async function dpPollStatus() {
-        const liveEl = document.getElementById('dpLiveLog');
-        const historyEl = document.getElementById('dpLogHistory');
-        const logPanel = document.getElementById('dpLogPanel');
-        const startBtn = document.getElementById('dpStartBtn');
-        const stopBtn = document.getElementById('dpStopBtn');
-        const connectBtn = document.getElementById('dpConnectBtn');
+        const liveEl = document.getElementById("dpLiveLog");
+        const historyEl = document.getElementById("dpLogHistory");
+        const logPanel = document.getElementById("dpLogPanel");
+        const startBtn = document.getElementById("dpStartBtn");
+        const stopBtn = document.getElementById("dpStopBtn");
+        const connectBtn = document.getElementById("dpConnectBtn");
         if (connectBtn) {
           connectBtn.disabled = true;
-          connectBtn.textContent = '🔌 연결 중...';
+          connectBtn.textContent = "🔌 연결 중...";
         }
         try {
           const res = await dpFetchFallback(
             DP_WRITER_URLS,
             "/logs",
             { cache: "no-store" },
-            "writer"
+            "writer",
           );
           if (!res.ok) throw new Error("HTTP " + res.status);
           const data = await res.json();
           const logs = data.logs || [];
-          const last = logs.length ? logs[logs.length - 1] : '';
+          const last = logs.length ? logs[logs.length - 1] : "";
           if (last && last !== _dpLastLogLine) {
             _dpLastLogLine = last;
           }
           if (liveEl) {
             liveEl.innerHTML =
-              (last || (data.running ? '작업 중...' : 'writer 대기 중')) +
+              (last || (data.running ? "작업 중..." : "writer 대기 중")) +
               '<span class="dp-log-toggle-hint"></span>';
-            liveEl.classList.toggle('running', !!data.running);
+            liveEl.classList.toggle("running", !!data.running);
           }
           if (historyEl) {
             const wasOpen = !!(logPanel && logPanel.open);
             const wasAtBottom = wasOpen
-              ? historyEl.scrollTop + historyEl.clientHeight >= historyEl.scrollHeight - 4
+              ? historyEl.scrollTop + historyEl.clientHeight >=
+                historyEl.scrollHeight - 4
               : false;
             if (logs.length !== _dpLastHistoryLen) {
-              historyEl.textContent = logs.join('\n');
+              historyEl.textContent = logs.join("\n");
               _dpLastHistoryLen = logs.length;
               if (wasOpen && wasAtBottom) {
                 historyEl.scrollTop = historyEl.scrollHeight;
@@ -10603,23 +10658,23 @@
           if (startBtn) startBtn.disabled = !!data.running;
           if (stopBtn) stopBtn.disabled = !data.running;
           if (connectBtn) {
-            connectBtn.textContent = '✓ 연결됨';
-            connectBtn.classList.add('dp-connected');
+            connectBtn.textContent = "✓ 연결됨";
+            connectBtn.classList.add("dp-connected");
           }
           _dpStartHealthLoop(); // 연결 성공 → 15초마다 자동 재확인 (끊김 감지)
         } catch (e) {
           if (liveEl) {
             liveEl.innerHTML =
-              '연결 끊김 (writer 꺼졌거나 URL 확인) — 재연결 필요' +
+              "연결 끊김 (writer 꺼졌거나 URL 확인) — 재연결 필요" +
               '<span class="dp-log-toggle-hint"></span>';
-            liveEl.classList.remove('running');
+            liveEl.classList.remove("running");
           }
           // 연결 실패 시 시작/중지 모두 비활성화 — 연결 성공 후에만 활성화
           if (startBtn) startBtn.disabled = true;
           if (stopBtn) stopBtn.disabled = true;
           if (connectBtn) {
-            connectBtn.textContent = '🔌 연결 실패 — 재시도';
-            connectBtn.classList.remove('dp-connected');
+            connectBtn.textContent = "🔌 연결 실패 — 재시도";
+            connectBtn.classList.remove("dp-connected");
           }
           _dpStopHealthLoop(); // 실패 시 루프 정지 (스팸 방지)
         } finally {
@@ -10637,7 +10692,11 @@
           msg.className = "dp-status-msg" + (kind ? " " + kind : "");
         };
 
-        if (!confirm("진행 중인 발행 작업을 중지하시겠습니까?\n(현재 단계 끝나면 종료됩니다)")) {
+        if (
+          !confirm(
+            "진행 중인 발행 작업을 중지하시겠습니까?\n(현재 단계 끝나면 종료됩니다)",
+          )
+        ) {
           return;
         }
 
@@ -10648,16 +10707,13 @@
             DP_WRITER_URLS,
             "/stop",
             { method: "POST" },
-            "writer"
+            "writer",
           );
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json().catch(() => ({}));
           setMsg(data.message || "중지 요청 전달됨", "ok");
         } catch (e) {
-          setMsg(
-            "writer exe 중지 실패 (" + (e.message || e) + ")",
-            "err",
-          );
+          setMsg("writer exe 중지 실패 (" + (e.message || e) + ")", "err");
         } finally {
           btn.disabled = false;
         }
@@ -10731,14 +10787,13 @@
             DP_WRITER_URLS,
             "/start",
             { method: "POST", headers, body },
-            "writer"
+            "writer",
           ),
           fetch(DP_N8N_WEBHOOK_URL, { method: "POST", headers, body }),
         ]);
 
         // 결과 해석
-        const writerOk =
-          writerRes.status === "fulfilled" && writerRes.value.ok;
+        const writerOk = writerRes.status === "fulfilled" && writerRes.value.ok;
         const n8nOk = n8nRes.status === "fulfilled" && n8nRes.value.ok;
 
         let writerMsg = writerOk ? "writer OK" : "writer 실패";
