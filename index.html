@@ -8162,14 +8162,11 @@
                 </summary>
                 <pre id="dpLogHistory" class="dp-log-history"></pre>
               </details>
-              <button
-                id="dpConnectBtn"
-                class="dp-connect-btn"
-                onclick="dpPollStatus()"
-                title="writer 서버에 1회 연결 시도 (상태·로그 갱신)"
-              >
-                🔌 연결
-              </button>
+              <span
+                id="dpConnectStatus"
+                class="dp-connect-status"
+                title="writer 서버 상태 (자동 확인)"
+              >🟠 연결 중</span>
               <button
                 id="dpStartBtn"
                 class="dp-start-btn"
@@ -10395,6 +10392,9 @@
 
       async function dpInit() {
         dpInited = true;
+        // writer 서버 자동 연결 (비동기, 시트 로딩과 병렬)
+        _dpSetStatus("🟠 연결 중", "");
+        dpPollStatus();
         await dpLoad();
       }
 
@@ -10733,17 +10733,20 @@
         }
       }
 
+      function _dpSetStatus(text, kind) {
+        const el = document.getElementById("dpConnectStatus");
+        if (!el) return;
+        el.textContent = text;
+        el.classList.remove("ok", "err");
+        if (kind) el.classList.add(kind);
+      }
+
       async function dpPollStatus() {
         const liveEl = document.getElementById("dpLiveLog");
         const historyEl = document.getElementById("dpLogHistory");
         const logPanel = document.getElementById("dpLogPanel");
         const startBtn = document.getElementById("dpStartBtn");
         const stopBtn = document.getElementById("dpStopBtn");
-        const connectBtn = document.getElementById("dpConnectBtn");
-        if (connectBtn) {
-          connectBtn.disabled = true;
-          connectBtn.textContent = "🔌 연결 중...";
-        }
         try {
           const res = await dpFetchFallback(
             DP_WRITER_URLS,
@@ -10780,31 +10783,27 @@
           }
           if (startBtn) startBtn.disabled = !!data.running;
           if (stopBtn) stopBtn.disabled = !data.running;
-          if (connectBtn) {
-            connectBtn.textContent = "✓ 연결됨";
-            connectBtn.classList.add("dp-connected");
+          if (data.running) {
+            _dpSetStatus("🟢 실행 중", "ok");
+          } else {
+            _dpSetStatus("🟢 연결됨", "ok");
           }
           _dpStartHealthLoop(); // 연결 성공 → 15초마다 자동 재확인 (끊김 감지)
         } catch (e) {
           if (liveEl) {
             liveEl.innerHTML =
-              "연결 끊김 (writer 꺼졌거나 URL 확인) — 재연결 필요" +
+              "연결 끊김 (writer 꺼졌거나 URL 확인) — 자동 재시도 중" +
               '<span class="dp-log-toggle-hint"></span>';
             liveEl.classList.remove("running");
           }
-          // 연결 실패 시 시작/중지 모두 비활성화 — 연결 성공 후에만 활성화
+          // 연결 실패 시 시작/중지 모두 비활성화
           if (startBtn) startBtn.disabled = true;
           if (stopBtn) stopBtn.disabled = true;
-          if (connectBtn) {
-            connectBtn.textContent = "🔌 연결 실패 — 재시도";
-            connectBtn.classList.remove("dp-connected");
-          }
-          _dpStopHealthLoop(); // 실패 시 루프 정지 (스팸 방지)
-        } finally {
-          if (connectBtn) connectBtn.disabled = false;
+          _dpSetStatus("🔴 연결 끊김 (자동 재시도)", "err");
+          // 실패해도 루프 유지 — 자동 복구 시도 (PM 와 동일)
+          _dpStartHealthLoop();
         }
       }
-      // DOMContentLoaded 자동 폴링 없음 — 사용자가 🔌 버튼 눌러 최초 연결, 그 후 15초 주기로 자동 재확인
 
       async function dpStopPost() {
         const btn = document.getElementById("dpStopBtn");
