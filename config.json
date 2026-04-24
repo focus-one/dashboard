@@ -9,9 +9,10 @@
 
   "게시물관리": {
     "_description": "CafeMaster.exe 연동 — 제품별 글 발행",
+    "_apiUrls_description": "공개 URL 만 나열 (순차 fallback). n8n 콜백도 이 URL 중 하나로 가므로 127.0.0.1 같은 사설 IP 금지.",
     "apiUrls": [
-      "http://127.0.0.1:8766",
-      "https://rogers-pointing-flight-welcome.trycloudflare.com"
+      "https://rogers-pointing-flight-welcome.trycloudflare.com",
+      "https://desktop-6hpfhqs.tail7fdacf.ts.net"
     ],
     "products": {
       "디토락스": {
