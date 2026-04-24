@@ -8306,7 +8306,7 @@
         try {
           const hash = window.location.hash.slice(1); // # 제거
           const parts = hash.split("/").filter(Boolean);
-          const [page, sub, cafeKey] = parts;
+          const [page, sub, cafeKeyOrProduct, urlTypeOrExtra, view] = parts;
 
           if (!page) {
             // hash 없으면 마지막 페이지 또는 home
@@ -8318,12 +8318,20 @@
           showPage(page);
 
           if (page === "naver" && sub) {
-            if (sub === "cafe" && cafeKey) {
+            if (sub === "cafe" && cafeKeyOrProduct) {
               if (typeof selectCafeSub === "function") {
-                selectCafeSub(cafeKey, null);
+                selectCafeSub(cafeKeyOrProduct, null);
               }
-            } else if (typeof selectNaverSub === "function") {
-              selectNaverSub(sub, null);
+            } else {
+              if (typeof selectNaverSub === "function") {
+                selectNaverSub(sub, null);
+              }
+              // 게시물관리: #naver/manage/<product>/<url>/<view> 복원
+              if (sub === "manage" && typeof pmApplyHashState === "function") {
+                pmApplyHashState(cafeKeyOrProduct, urlTypeOrExtra, view);
+                // 복원된 상태로 데이터 재로딩
+                if (typeof pmLoad === "function") pmLoad();
+              }
             }
           }
         } catch (e) {
@@ -9530,37 +9538,68 @@
         await pmLoad();
       }
 
+      // URL hash 업데이트 — #naver/manage/<product>/<url>/<view>
+      function pmSyncHash() {
+        if (_routingFromHash) return;
+        try {
+          const h = `#naver/manage/${PM_CURRENT_PRODUCT}/${PM_CURRENT_URL}/${PM_CURRENT_VIEW}`;
+          if (window.location.hash !== h) history.replaceState(null, "", h);
+        } catch (_) {}
+      }
+
       function pmSwitchProduct(product, btn) {
         if (PM_CURRENT_PRODUCT === product) return;
         PM_CURRENT_PRODUCT = product;
-        document
-          .querySelectorAll("[data-pm-product]")
-          .forEach((b) => b.classList.remove("active"));
-        if (btn) btn.classList.add("active");
+        document.querySelectorAll("[data-pm-product]").forEach((b) => {
+          b.classList.toggle("active", b.dataset.pmProduct === product);
+        });
         PM_OPEN_MONTHS.clear();
         pmRender();
+        pmSyncHash();
       }
 
       function pmSwitchUrl(urlType, btn) {
         if (PM_CURRENT_URL === urlType) return;
         PM_CURRENT_URL = urlType;
-        document
-          .querySelectorAll("[data-pm-url]")
-          .forEach((b) => b.classList.remove("active"));
-        if (btn) btn.classList.add("active");
+        document.querySelectorAll("[data-pm-url]").forEach((b) => {
+          b.classList.toggle("active", b.dataset.pmUrl === urlType);
+        });
         PM_OPEN_MONTHS.clear();
         // 탭 전환 시 해당 탭 데이터 로딩 (캐시 있으면 즉시 사용)
         pmLoad();
+        pmSyncHash();
       }
 
       function pmSwitchView(view, btn) {
         if (PM_CURRENT_VIEW === view) return;
         PM_CURRENT_VIEW = view;
-        document
-          .querySelectorAll("[data-pm-view]")
-          .forEach((b) => b.classList.remove("active"));
-        if (btn) btn.classList.add("active");
+        document.querySelectorAll("[data-pm-view]").forEach((b) => {
+          b.classList.toggle("active", b.dataset.pmView === view);
+        });
         pmRender();
+        pmSyncHash();
+      }
+
+      // hash에 저장된 상태로 pm 복원 (새로고침/URL 직접 입력 시)
+      function pmApplyHashState(product, urlType, view) {
+        if (product && product !== PM_CURRENT_PRODUCT) {
+          PM_CURRENT_PRODUCT = product;
+          document.querySelectorAll("[data-pm-product]").forEach((b) => {
+            b.classList.toggle("active", b.dataset.pmProduct === product);
+          });
+        }
+        if (urlType && urlType !== PM_CURRENT_URL) {
+          PM_CURRENT_URL = urlType;
+          document.querySelectorAll("[data-pm-url]").forEach((b) => {
+            b.classList.toggle("active", b.dataset.pmUrl === urlType);
+          });
+        }
+        if (view && view !== PM_CURRENT_VIEW) {
+          PM_CURRENT_VIEW = view;
+          document.querySelectorAll("[data-pm-view]").forEach((b) => {
+            b.classList.toggle("active", b.dataset.pmView === view);
+          });
+        }
       }
 
       // 상태 최신화 / 글 발행 버튼 핸들러
