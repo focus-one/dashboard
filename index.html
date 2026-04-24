@@ -712,6 +712,70 @@
       }
 
       /* ══ 게시물관리 ══ */
+      /* 액션 버튼 (상태 최신화 / 글 발행) */
+      .pm-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 14px;
+      }
+      .pm-action-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 14px;
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: 6px;
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition:
+          background-color 0.15s,
+          opacity 0.15s;
+      }
+      .pm-action-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .pm-action-refresh {
+        background: var(--bg, #fff);
+        color: var(--text, #111);
+        border-color: var(--border, #d1d5db);
+      }
+      .pm-action-refresh:hover:not(:disabled) {
+        background: #f3f4f6;
+      }
+      .pm-action-publish {
+        background: #16a34a;
+        color: #fff;
+      }
+      .pm-action-publish:hover:not(:disabled) {
+        background: #15803d;
+      }
+      .pm-action-select {
+        padding: 7px 10px;
+        font-size: 12px;
+        border: 1px solid var(--border, #d1d5db);
+        border-radius: 6px;
+        background: #fff;
+        color: var(--text, #111);
+        cursor: pointer;
+        min-width: 130px;
+      }
+      .pm-action-select:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .pm-action-msg {
+        font-size: 12px;
+        color: var(--text-muted, #6b7280);
+      }
+      .pm-action-msg.ok {
+        color: #059669;
+      }
+      .pm-action-msg.err {
+        color: #dc2626;
+      }
       /* URL 종류 토글 (초록) */
       .pm-urltype-tabs {
         display: flex;
@@ -7640,6 +7704,34 @@
             </button>
           </div>
 
+          <!-- 액션 버튼 (상태 최신화 / 제품 드롭다운 / 글 발행) -->
+          <div class="pm-actions">
+            <button
+              id="pmRefreshStatusBtn"
+              class="pm-action-btn pm-action-refresh"
+              onclick="pmRefreshStatus()"
+              title="CafeMaster가 각 URL 상태를 스캔해 시트 갱신"
+            >
+              ↻ 상태 최신화
+            </button>
+            <select
+              id="pmPublishProduct"
+              class="pm-action-select"
+              title="발행할 제품 선택"
+            >
+              <option value="">제품 선택...</option>
+            </select>
+            <button
+              id="pmPublishBtn"
+              class="pm-action-btn pm-action-publish"
+              onclick="pmPublish()"
+              title="CafeMaster + n8n 트리거"
+            >
+              ▶ 글 발행
+            </button>
+            <span id="pmActionMsg" class="pm-action-msg"></span>
+          </div>
+
           <!-- 뷰 모드 + 요약 카운트 -->
           <div class="pm-view-row">
             <div class="pm-view-tabs">
@@ -9474,6 +9566,133 @@
         pmRender();
       }
 
+      // 상태 최신화 / 글 발행 버튼 핸들러
+      function pmSetActionMsg(text, kind) {
+        const el = document.getElementById("pmActionMsg");
+        if (!el) return;
+        el.textContent = text || "";
+        el.className = "pm-action-msg" + (kind ? " " + kind : "");
+      }
+
+      // config 로드 후 제품 드롭다운에 옵션 주입 (config에 products 없어도 기본 4개 노출)
+      function pmPopulateProductSelect() {
+        const sel = document.getElementById("pmPublishProduct");
+        if (!sel) return;
+        const products =
+          DP_PM_PRODUCTS && Object.keys(DP_PM_PRODUCTS).length
+            ? DP_PM_PRODUCTS
+            : { 자이릭스: {}, 디토락스: {}, 트라다필: {}, 이소큐텐: {} };
+        sel.innerHTML = '<option value="">제품 선택...</option>';
+        Object.entries(products).forEach(([name, meta]) => {
+          const opt = document.createElement("option");
+          opt.value = name;
+          opt.textContent = name;
+          if (meta && meta.description) opt.title = meta.description;
+          sel.appendChild(opt);
+        });
+      }
+
+      async function pmRefreshStatus() {
+        const btn = document.getElementById("pmRefreshStatusBtn");
+        btn.disabled = true;
+        pmSetActionMsg("상태 최신화 요청 중...", "");
+        try {
+          const res = await dpFetchFallback(
+            DP_CAFEMASTER_URLS,
+            "/refresh-status",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({}),
+            },
+            "cafemaster"
+          );
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok)
+            throw new Error(data.message || `HTTP ${res.status}`);
+          pmSetActionMsg(data.message || "상태 최신화 요청 전달됨", "ok");
+        } catch (e) {
+          pmSetActionMsg(
+            "실패: " + (e.message || e) + " (CafeMaster 연결 확인)",
+            "err"
+          );
+        } finally {
+          btn.disabled = false;
+        }
+      }
+
+      async function pmPublish() {
+        const sel = document.getElementById("pmPublishProduct");
+        const btn = document.getElementById("pmPublishBtn");
+        const product = sel && sel.value;
+        if (!product) {
+          pmSetActionMsg("제품을 먼저 선택하세요", "err");
+          return;
+        }
+        const meta = (DP_PM_PRODUCTS && DP_PM_PRODUCTS[product]) || {};
+        const n8nWebhook = meta.n8nWebhook || "";
+
+        if (!confirm(`"${product}" 글 발행을 시작할까요?`)) return;
+
+        btn.disabled = true;
+        sel.disabled = true;
+        pmSetActionMsg(`${product} 발행 요청 중...`, "");
+
+        const headers = { "Content-Type": "application/json" };
+        const body = JSON.stringify({ product });
+
+        // n8n webhook + CafeMaster /start 병렬 호출
+        const tasks = [
+          dpFetchFallback(
+            DP_CAFEMASTER_URLS,
+            "/start",
+            { method: "POST", headers, body },
+            "cafemaster"
+          )
+            .then(async (r) => {
+              const d = await r.json().catch(() => ({}));
+              return { who: "cafemaster", ok: r.ok, data: d };
+            })
+            .catch((e) => ({
+              who: "cafemaster",
+              ok: false,
+              err: e.message || e,
+            })),
+        ];
+        if (n8nWebhook) {
+          tasks.push(
+            fetch(n8nWebhook, { method: "POST", headers, body })
+              .then((r) => ({ who: "n8n", ok: r.ok, status: r.status }))
+              .catch((e) => ({ who: "n8n", ok: false, err: e.message || e }))
+          );
+        }
+
+        try {
+          const results = await Promise.all(tasks);
+          const cm = results.find((r) => r.who === "cafemaster");
+          const n8 = results.find((r) => r.who === "n8n");
+          const parts = [];
+          parts.push(
+            cm && cm.ok
+              ? `CafeMaster ✓`
+              : `CafeMaster ✗ (${(cm && (cm.data?.message || cm.err)) || "실패"})`
+          );
+          if (n8nWebhook) {
+            parts.push(n8 && n8.ok ? "n8n ✓" : `n8n ✗`);
+          } else {
+            parts.push("n8n 설정 없음");
+          }
+          const allOk = (cm?.ok) && (!n8nWebhook || n8?.ok);
+          pmSetActionMsg(
+            `${product}: ${parts.join(" · ")}`,
+            allOk ? "ok" : "err"
+          );
+        } finally {
+          btn.disabled = false;
+          sel.disabled = false;
+        }
+      }
+
       async function pmLoad(force) {
         const host = document.getElementById("pmContent");
         const tabKey = PM_CURRENT_URL;
@@ -9749,11 +9968,42 @@
       let DP_ACCOUNT_ROWS = []; // [{status, product, cafe, date}, ...] — 16RS 계정 행 원본
       const DP_TWENTY_FOUR_H_MS = 24 * 60 * 60 * 1000;
       // config.json에서 로드 (loadDashboardConfig() 참고). 네트워크 실패 시 아래 기본값 fallback.
-      let DP_WRITER_URL = "http://127.0.0.1:8765"; // writer exe 로컬 서버
+      // 사이드바 메뉴별 그룹핑 구조 + apiUrls 배열 (순차 fallback)
+      let DP_WRITER_URLS = ["http://127.0.0.1:8765"]; // 일상글관리 (writer.exe)
       let DP_N8N_WEBHOOK_URL =
-        "https://qnwkdi111.app.n8n.cloud/webhook/214511ac-f16e-44b1-a36d-919fb49ff1ae"; // n8n 원고 생성 트리거
+        "https://qnwkdi111.app.n8n.cloud/webhook/214511ac-f16e-44b1-a36d-919fb49ff1ae";
+      let DP_CAFEMASTER_URLS = ["http://127.0.0.1:8766"]; // 게시물관리 (CafeMaster.exe)
+      let DP_PM_PRODUCTS = {}; // 제품별 설정 {product: {description, n8nWebhook, driveFolderId}}
 
-      // 외부 config.json 로드 — writer URL 바꿀 때 이 파일만 수정하면 됨
+      // 메뉴별 마지막 성공 URL 캐시 (세션 내 — 재시도 최소화)
+      const _DP_LAST_OK = { writer: null, cafemaster: null };
+
+      // 여러 URL 순차 fetch — 성공할 때까지 시도. 실패 시 마지막 에러 throw.
+      async function dpFetchFallback(urls, path, options, cacheKey) {
+        if (!urls || !urls.length) throw new Error("apiUrls 비어있음");
+        // 마지막 성공 URL을 앞으로 (cacheKey 주어지면)
+        let tryOrder = urls.slice();
+        if (cacheKey && _DP_LAST_OK[cacheKey]) {
+          const last = _DP_LAST_OK[cacheKey];
+          tryOrder = [last, ...urls.filter((u) => u !== last)];
+        }
+        let lastErr = null;
+        for (const base of tryOrder) {
+          try {
+            const res = await fetch(base + path, options);
+            if (res.ok) {
+              if (cacheKey) _DP_LAST_OK[cacheKey] = base;
+              return res;
+            }
+            lastErr = new Error(`HTTP ${res.status} @ ${base}`);
+          } catch (e) {
+            lastErr = e;
+          }
+        }
+        throw lastErr || new Error("모든 URL 실패");
+      }
+
+      // 외부 config.json 로드 — URL 바꿀 때 이 파일만 수정하면 됨
       (async function loadDashboardConfig() {
         try {
           const res = await fetch("./config.json?_=" + Date.now(), {
@@ -9761,14 +10011,31 @@
           });
           if (!res.ok) return;
           const cfg = await res.json();
-          if (cfg.writerUrl) DP_WRITER_URL = cfg.writerUrl;
-          if (cfg.n8nWebhookUrl) DP_N8N_WEBHOOK_URL = cfg.n8nWebhookUrl;
+          // 일상글관리
+          const ilsang = cfg["일상글관리"] || {};
+          if (Array.isArray(ilsang.apiUrls) && ilsang.apiUrls.length)
+            DP_WRITER_URLS = ilsang.apiUrls;
+          else if (ilsang.apiUrl) DP_WRITER_URLS = [ilsang.apiUrl]; // 구버전 호환
+          if (ilsang.n8nWebhook) DP_N8N_WEBHOOK_URL = ilsang.n8nWebhook;
+          // 게시물관리
+          const gsm = cfg["게시물관리"] || {};
+          if (Array.isArray(gsm.apiUrls) && gsm.apiUrls.length)
+            DP_CAFEMASTER_URLS = gsm.apiUrls;
+          else if (gsm.apiUrl) DP_CAFEMASTER_URLS = [gsm.apiUrl];
+          if (gsm.products) DP_PM_PRODUCTS = gsm.products;
           console.log("[config] loaded:", {
-            DP_WRITER_URL,
+            DP_WRITER_URLS,
             DP_N8N_WEBHOOK_URL,
+            DP_CAFEMASTER_URLS,
+            DP_PM_PRODUCTS: Object.keys(DP_PM_PRODUCTS),
           });
         } catch (e) {
           console.warn("[config] load failed, using defaults:", e);
+        } finally {
+          try {
+            if (typeof pmPopulateProductSelect === "function")
+              pmPopulateProductSelect();
+          } catch (_) {}
         }
       })();
 
@@ -9787,9 +10054,12 @@
 
         try {
           // URL 시트는 비공개라 dashboard에서 직접 못 읽음 → writer 프록시로 우회
-          const writerCafesPromise = fetch(`${DP_WRITER_URL}/cafes`, {
-            cache: "no-store",
-          })
+          const writerCafesPromise = dpFetchFallback(
+            DP_WRITER_URLS,
+            "/cafes",
+            { cache: "no-store" },
+            "writer"
+          )
             .then((r) => (r.ok ? r.json() : { cafes: [] }))
             .catch(() => ({ cafes: [] }));
 
@@ -10089,8 +10359,13 @@
         const startBtn = document.getElementById('dpStartBtn');
         const stopBtn = document.getElementById('dpStopBtn');
         try {
-          const res = await fetch(`${DP_WRITER_URL}/logs`, { cache: 'no-store' });
-          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const res = await dpFetchFallback(
+            DP_WRITER_URLS,
+            "/logs",
+            { cache: "no-store" },
+            "writer"
+          );
+          if (!res.ok) throw new Error("HTTP " + res.status);
           const data = await res.json();
           const logs = data.logs || [];
           const last = logs.length ? logs[logs.length - 1] : '';
@@ -10156,7 +10431,12 @@
         btn.disabled = true;
         setMsg("writer exe에 중지 요청 중...", "");
         try {
-          const res = await fetch(`${DP_WRITER_URL}/stop`, { method: "POST" });
+          const res = await dpFetchFallback(
+            DP_WRITER_URLS,
+            "/stop",
+            { method: "POST" },
+            "writer"
+          );
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json().catch(() => ({}));
           setMsg(data.message || "중지 요청 전달됨", "ok");
@@ -10234,7 +10514,12 @@
 
         // 두 대상에 동시에 POST — 한쪽 실패해도 나머지 진행
         const [writerRes, n8nRes] = await Promise.allSettled([
-          fetch(`${DP_WRITER_URL}/start`, { method: "POST", headers, body }),
+          dpFetchFallback(
+            DP_WRITER_URLS,
+            "/start",
+            { method: "POST", headers, body },
+            "writer"
+          ),
           fetch(DP_N8N_WEBHOOK_URL, { method: "POST", headers, body }),
         ]);
 

@@ -1,5 +1,40 @@
 {
-  "writerUrl": "https://desktop-6hpfhqs.tail7fdacf.ts.net",
-  "n8nWebhookUrl": "https://qnwkdi111.app.n8n.cloud/webhook/214511ac-f16e-44b1-a36d-919fb49ff1ae",
-  "_comment": "products 목록은 계정 시트(16RS6FA.../2.일상글)의 B열 제품분류에서 자동 수집. config.json은 writerUrl/n8nWebhookUrl만 관리."
+  "_comment": "대시보드 사이드바 메뉴별 API 설정. apiUrls는 배열 — 순차 fallback 시도.",
+
+  "일상글관리": {
+    "_description": "writer.exe 연동 — 일상글 자동 발행",
+    "apiUrls": [
+      "https://desktop-6hpfhqs.tail7fdacf.ts.net"
+    ],
+    "n8nWebhook": "https://qnwkdi111.app.n8n.cloud/webhook/214511ac-f16e-44b1-a36d-919fb49ff1ae"
+  },
+
+  "게시물관리": {
+    "_description": "CafeMaster.exe 연동 — 제품별 글 발행",
+    "apiUrls": [
+      "http://127.0.0.1:8766"
+    ],
+    "products": {
+      "디토락스": {
+        "description": "",
+        "n8nWebhook": "",
+        "driveFolderId": ""
+      },
+      "이소큐텐": {
+        "description": "",
+        "n8nWebhook": "",
+        "driveFolderId": ""
+      },
+      "트라다필": {
+        "description": "",
+        "n8nWebhook": "",
+        "driveFolderId": ""
+      },
+      "자이릭스": {
+        "description": "",
+        "n8nWebhook": "",
+        "driveFolderId": ""
+      }
+    }
+  }
 }
