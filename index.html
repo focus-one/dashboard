@@ -9983,14 +9983,13 @@
         pmSetActionMsg(`${cafe}/${product} 발행 요청 중...`, "");
 
         const headers = { "Content-Type": "application/json" };
-        // callback_base_url: n8n 이 CafeMaster 로 콜백할 공개 URL
-        //   1순위: config.json 의 callbackUrl (cloudflared/tailscale — n8n cloud 가 도달 가능)
-        //   2순위: 현재 접속 중인 base URL (사설 IP 면 n8n 이 차단할 수 있음)
+        // callback_base_url: 현재 접속 중인 base URL (로컬 테스트용).
+        // 운영 시엔 hub 의 config.json server.public_url 이 우선 사용됨 (n8n 콜백용).
         const callbackBase =
-          (DP_CAFEMASTER_CALLBACK_URL ||
-            _DP_LAST_OK.cafemaster ||
-            DP_CAFEMASTER_URLS[0] ||
-            "").replace(/\/$/, "");
+          (_DP_LAST_OK.cafemaster || DP_CAFEMASTER_URLS[0] || "").replace(
+            /\/$/,
+            "",
+          );
         const body = JSON.stringify({ cafe, product, callback_base_url: callbackBase });
 
         // n8n webhook + CafeMaster /start 병렬 호출
@@ -10326,7 +10325,6 @@
       let DP_N8N_WEBHOOK_URL =
         "https://qnwkdi111.app.n8n.cloud/webhook/214511ac-f16e-44b1-a36d-919fb49ff1ae";
       let DP_CAFEMASTER_URLS = ["http://127.0.0.1:8766"]; // 게시물관리 (CafeMaster.exe)
-      let DP_CAFEMASTER_CALLBACK_URL = ""; // n8n 이 콜백할 공개 URL (cloudflared/tailscale)
       let DP_PM_PRODUCTS = {}; // 제품별 설정 {product: {description, n8nWebhook, driveFolderId}}
 
       // 메뉴별 마지막 성공 URL 캐시 (세션 내 — 재시도 최소화)
@@ -10376,7 +10374,6 @@
           if (Array.isArray(gsm.apiUrls) && gsm.apiUrls.length)
             DP_CAFEMASTER_URLS = gsm.apiUrls;
           else if (gsm.apiUrl) DP_CAFEMASTER_URLS = [gsm.apiUrl];
-          if (gsm.callbackUrl) DP_CAFEMASTER_CALLBACK_URL = gsm.callbackUrl;
           if (gsm.products) DP_PM_PRODUCTS = gsm.products;
           console.log("[config] loaded:", {
             DP_WRITER_URLS,
