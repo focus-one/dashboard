@@ -10719,19 +10719,7 @@
       // writer 상태 + 로그 — 연결 전엔 버튼으로 1회 요청, 연결 후엔 15초마다 health 자동 재확인
       let _dpLastLogLine = "";
       let _dpLastHistoryLen = 0;
-      let _dpHealthTimer = null;
-
-      function _dpStartHealthLoop() {
-        if (_dpHealthTimer) return;
-        _dpHealthTimer = setInterval(dpPollStatus, 15000);
-      }
-
-      function _dpStopHealthLoop() {
-        if (_dpHealthTimer) {
-          clearInterval(_dpHealthTimer);
-          _dpHealthTimer = null;
-        }
-      }
+      // 폴링 타이머 제거 — SSE 로 대체됨 (_dpStartEventStream)
 
       function _dpSetStatus(text, kind) {
         const el = document.getElementById("dpConnectStatus");
@@ -10741,68 +10729,129 @@
         if (kind) el.classList.add(kind);
       }
 
-      async function dpPollStatus() {
+      // ── SSE 기반 writer 상태 구독 (post-hub 와 동일 패턴) ─────
+      const DP_SSE_WATCHDOG_MS = 15000;
+      let _dpEventSource = null;
+      let _dpSseWatchdog = null;
+      let _dpActiveWriterBase = null;
+
+      function _dpResetWatchdog() {
+        if (_dpSseWatchdog) clearTimeout(_dpSseWatchdog);
+        _dpSseWatchdog = setTimeout(() => {
+          _dpSetStatus("🔴 응답 없음 (자동 재시도)", "err");
+        }, DP_SSE_WATCHDOG_MS);
+      }
+
+      function _dpStopWatchdog() {
+        if (_dpSseWatchdog) {
+          clearTimeout(_dpSseWatchdog);
+          _dpSseWatchdog = null;
+        }
+      }
+
+      function _dpApplyWriterState(data) {
         const liveEl = document.getElementById("dpLiveLog");
         const historyEl = document.getElementById("dpLogHistory");
         const logPanel = document.getElementById("dpLogPanel");
         const startBtn = document.getElementById("dpStartBtn");
         const stopBtn = document.getElementById("dpStopBtn");
+        const logs = data.logs || [];
+        const last = logs.length ? logs[logs.length - 1] : "";
+        if (last && last !== _dpLastLogLine) _dpLastLogLine = last;
+        if (liveEl) {
+          liveEl.innerHTML =
+            (last || (data.running ? "작업 중..." : "writer 대기 중")) +
+            '<span class="dp-log-toggle-hint"></span>';
+          liveEl.classList.toggle("running", !!data.running);
+        }
+        if (historyEl) {
+          const wasOpen = !!(logPanel && logPanel.open);
+          const wasAtBottom = wasOpen
+            ? historyEl.scrollTop + historyEl.clientHeight >=
+              historyEl.scrollHeight - 4
+            : false;
+          if (logs.length !== _dpLastHistoryLen) {
+            historyEl.textContent = logs.join("\n");
+            _dpLastHistoryLen = logs.length;
+            if (wasOpen && wasAtBottom) {
+              historyEl.scrollTop = historyEl.scrollHeight;
+            }
+          }
+        }
+        if (startBtn) startBtn.disabled = !!data.running;
+        if (stopBtn) stopBtn.disabled = !data.running;
+        _dpSetStatus(data.running ? "🟢 실행 중" : "🟢 연결됨", "ok");
+      }
+
+      async function _dpFindActiveBase() {
+        // 한 번 /health 로 동작하는 base URL 고르기 (dpFetchFallback 재사용)
         try {
           const res = await dpFetchFallback(
             DP_WRITER_URLS,
-            "/logs",
+            "/health",
             { cache: "no-store" },
             "writer",
           );
-          if (!res.ok) throw new Error("HTTP " + res.status);
-          const data = await res.json();
-          const logs = data.logs || [];
-          const last = logs.length ? logs[logs.length - 1] : "";
-          if (last && last !== _dpLastLogLine) {
-            _dpLastLogLine = last;
-          }
-          if (liveEl) {
-            liveEl.innerHTML =
-              (last || (data.running ? "작업 중..." : "writer 대기 중")) +
-              '<span class="dp-log-toggle-hint"></span>';
-            liveEl.classList.toggle("running", !!data.running);
-          }
-          if (historyEl) {
-            const wasOpen = !!(logPanel && logPanel.open);
-            const wasAtBottom = wasOpen
-              ? historyEl.scrollTop + historyEl.clientHeight >=
-                historyEl.scrollHeight - 4
-              : false;
-            if (logs.length !== _dpLastHistoryLen) {
-              historyEl.textContent = logs.join("\n");
-              _dpLastHistoryLen = logs.length;
-              if (wasOpen && wasAtBottom) {
-                historyEl.scrollTop = historyEl.scrollHeight;
-              }
-            }
-          }
-          if (startBtn) startBtn.disabled = !!data.running;
-          if (stopBtn) stopBtn.disabled = !data.running;
-          if (data.running) {
-            _dpSetStatus("🟢 실행 중", "ok");
-          } else {
-            _dpSetStatus("🟢 연결됨", "ok");
-          }
-          _dpStartHealthLoop(); // 연결 성공 → 15초마다 자동 재확인 (끊김 감지)
-        } catch (e) {
-          if (liveEl) {
-            liveEl.innerHTML =
-              "연결 끊김 (writer 꺼졌거나 URL 확인) — 자동 재시도 중" +
-              '<span class="dp-log-toggle-hint"></span>';
-            liveEl.classList.remove("running");
-          }
-          // 연결 실패 시 시작/중지 모두 비활성화
+          if (!res.ok) return null;
+          return (_DP_LAST_OK.writer || DP_WRITER_URLS[0] || "").replace(/\/$/, "");
+        } catch (_) {
+          return null;
+        }
+      }
+
+      function _dpStartEventStream() {
+        if (!_dpActiveWriterBase) return;
+        _dpStopEventStream();
+        try {
+          _dpEventSource = new EventSource(_dpActiveWriterBase + "/events");
+        } catch (_) {
+          _dpSetStatus("🔴 SSE 초기화 실패", "err");
+          return;
+        }
+        _dpEventSource.onopen = () => {
+          _dpSetStatus("🟢 연결됨", "ok");
+          _dpResetWatchdog();
+        };
+        _dpEventSource.addEventListener("state", (ev) => {
+          _dpResetWatchdog();
+          try {
+            const data = JSON.parse(ev.data);
+            _dpApplyWriterState(data);
+          } catch (_) {}
+        });
+        _dpEventSource.addEventListener("ping", () => {
+          _dpResetWatchdog();
+          _dpSetStatus("🟢 연결됨", "ok");
+        });
+        _dpEventSource.onerror = () => {
+          _dpSetStatus("🔴 연결 끊김 (자동 재시도)", "err");
+          const startBtn = document.getElementById("dpStartBtn");
+          const stopBtn = document.getElementById("dpStopBtn");
           if (startBtn) startBtn.disabled = true;
           if (stopBtn) stopBtn.disabled = true;
-          _dpSetStatus("🔴 연결 끊김 (자동 재시도)", "err");
-          // 실패해도 루프 유지 — 자동 복구 시도 (PM 와 동일)
-          _dpStartHealthLoop();
+        };
+      }
+
+      function _dpStopEventStream() {
+        _dpStopWatchdog();
+        if (_dpEventSource) {
+          try { _dpEventSource.close(); } catch (_) {}
+          _dpEventSource = null;
         }
+      }
+
+      // 기존 함수명 유지 — dpInit/dpStart/dpStop 에서 호출
+      async function dpPollStatus() {
+        _dpSetStatus("🟠 연결 중", "");
+        const base = await _dpFindActiveBase();
+        if (!base) {
+          _dpSetStatus("🔴 연결 실패 (자동 재시도)", "err");
+          // 5초 뒤 재시도
+          setTimeout(dpPollStatus, 5000);
+          return;
+        }
+        _dpActiveWriterBase = base;
+        _dpStartEventStream();
       }
 
       async function dpStopPost() {
