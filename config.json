@@ -9,10 +9,12 @@
 
   "게시물관리": {
     "_description": "CafeMaster.exe 연동 — 제품별 글 발행",
+    "_callbackUrl_description": "n8n 이 서버로 콜백할 때 쓸 공개 URL. n8n cloud 는 사설 IP(127.0.0.1) 콜백 차단하므로 cloudflared/tailscale URL 필수.",
     "apiUrls": [
       "http://127.0.0.1:8766",
       "https://rogers-pointing-flight-welcome.trycloudflare.com"
     ],
+    "callbackUrl": "https://rogers-pointing-flight-welcome.trycloudflare.com",
     "products": {
       "디토락스": {
         "description": "",
