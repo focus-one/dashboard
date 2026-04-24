@@ -9654,6 +9654,19 @@
         });
       }
 
+      // 게시물관리 서버 health 주기 재확인 (연결 후 15초 간격)
+      let _pmHealthTimer = null;
+      function _pmStartHealthLoop() {
+        if (_pmHealthTimer) return;
+        _pmHealthTimer = setInterval(pmCheckConnect, 15000);
+      }
+      function _pmStopHealthLoop() {
+        if (_pmHealthTimer) {
+          clearInterval(_pmHealthTimer);
+          _pmHealthTimer = null;
+        }
+      }
+
       async function pmCheckConnect() {
         const btn = document.getElementById("pmConnectBtn");
         if (!btn) return;
@@ -9675,12 +9688,14 @@
             "CafeMaster 연결 OK" + (data.message ? ` (${data.message})` : ""),
             "ok"
           );
+          _pmStartHealthLoop(); // 성공 후 주기 재확인 시작
         } catch (e) {
           btn.textContent = "🔌 연결 실패 — 재시도";
           pmSetActionMsg(
             "연결 실패: " + (e.message || e) + " (서버/URL 확인)",
             "err"
           );
+          _pmStopHealthLoop(); // 실패 시 루프 정지
         } finally {
           btn.disabled = false;
         }
@@ -10413,9 +10428,23 @@
         if (prodSel) prodSel.addEventListener("change", dpUpdateAccountCounter);
       });
 
-      // writer 상태 + 로그 — 버튼 눌러 1회 요청 (자동 폴링 제거, 서버 꺼졌을 때 에러 스팸 방지)
+      // writer 상태 + 로그 — 연결 전엔 버튼으로 1회 요청, 연결 후엔 15초마다 health 자동 재확인
       let _dpLastLogLine = '';
       let _dpLastHistoryLen = 0;
+      let _dpHealthTimer = null;
+
+      function _dpStartHealthLoop() {
+        if (_dpHealthTimer) return;
+        _dpHealthTimer = setInterval(dpPollStatus, 15000);
+      }
+
+      function _dpStopHealthLoop() {
+        if (_dpHealthTimer) {
+          clearInterval(_dpHealthTimer);
+          _dpHealthTimer = null;
+        }
+      }
+
       async function dpPollStatus() {
         const liveEl = document.getElementById('dpLiveLog');
         const historyEl = document.getElementById('dpLogHistory');
@@ -10466,10 +10495,11 @@
             connectBtn.textContent = '✓ 연결됨';
             connectBtn.classList.add('dp-connected');
           }
+          _dpStartHealthLoop(); // 연결 성공 → 15초마다 자동 재확인 (끊김 감지)
         } catch (e) {
           if (liveEl) {
             liveEl.innerHTML =
-              '연결 안 됨 (writer 꺼져있거나 URL 확인)' +
+              '연결 끊김 (writer 꺼졌거나 URL 확인) — 재연결 필요' +
               '<span class="dp-log-toggle-hint"></span>';
             liveEl.classList.remove('running');
           }
@@ -10480,11 +10510,12 @@
             connectBtn.textContent = '🔌 연결 실패 — 재시도';
             connectBtn.classList.remove('dp-connected');
           }
+          _dpStopHealthLoop(); // 실패 시 루프 정지 (스팸 방지)
         } finally {
           if (connectBtn) connectBtn.disabled = false;
         }
       }
-      // DOMContentLoaded 자동 폴링 제거 — 사용자가 🔌 버튼 눌러야 1회 요청
+      // DOMContentLoaded 자동 폴링 없음 — 사용자가 🔌 버튼 눌러 최초 연결, 그 후 15초 주기로 자동 재확인
 
       async function dpStopPost() {
         const btn = document.getElementById("dpStopBtn");
