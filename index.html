@@ -7720,6 +7720,7 @@
                 <select
                   id="pmPublishCafe"
                   class="pm-action-select pm-action-select-lg"
+                  onchange="pmOnCafeChange()"
                   title="발행할 카페 선택"
                 >
                   <option value="">카페 선택...</option>
@@ -9734,6 +9735,7 @@
 
       // 카페/제품 드롭다운 — 서버 연결 후 /options 로 채움
       let _pmConnected = false;
+      let _pmCafeProductMap = {}; // {cafe: [products]}
 
       function _pmSetSelectState(selId, items, enabled, disconnectedText) {
         const sel = document.getElementById(selId);
@@ -9756,6 +9758,7 @@
       }
 
       function pmSetDisconnectedDropdowns() {
+        _pmCafeProductMap = {};
         _pmSetSelectState(
           "pmPublishCafe",
           [],
@@ -9770,9 +9773,42 @@
         );
       }
 
-      function pmSetConnectedDropdowns(cafes, products) {
+      function pmSetConnectedDropdowns(cafes, cafeProductMap) {
+        _pmCafeProductMap = cafeProductMap || {};
         _pmSetSelectState("pmPublishCafe", cafes, true, "");
-        _pmSetSelectState("pmPublishProduct", products, true, "");
+        // 제품은 카페 선택 전엔 비활성 + 안내
+        _pmSetSelectState(
+          "pmPublishProduct",
+          [],
+          false,
+          "카페를 먼저 선택하세요",
+        );
+      }
+
+      // 카페 변경 시 → 해당 카페의 제품만 제품 드롭다운에 채움
+      function pmOnCafeChange() {
+        const cafeSel = document.getElementById("pmPublishCafe");
+        const cafe = cafeSel && cafeSel.value;
+        if (!cafe) {
+          _pmSetSelectState(
+            "pmPublishProduct",
+            [],
+            false,
+            "카페를 먼저 선택하세요",
+          );
+          return;
+        }
+        const products = _pmCafeProductMap[cafe] || [];
+        if (!products.length) {
+          _pmSetSelectState(
+            "pmPublishProduct",
+            [],
+            false,
+            `⚠️ "${cafe}"에 등록된 제품 없음`,
+          );
+        } else {
+          _pmSetSelectState("pmPublishProduct", products, true, "");
+        }
       }
 
       // 게시물관리 서버 health 주기 재확인 (연결 후 15초 간격)
@@ -9820,7 +9856,7 @@
           const products = opts.products || [];
 
           // 3) 드롭다운 채움 + 연결 완료 표시
-          pmSetConnectedDropdowns(cafes, products);
+          pmSetConnectedDropdowns(cafes, opts.cafeProductMap || {});
           _pmConnected = true;
           btn.textContent = "✓ 연결됨";
           btn.classList.add("dp-connected");
