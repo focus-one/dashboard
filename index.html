@@ -7668,6 +7668,14 @@
                 </svg>
                 시트 열기
               </a>
+              <button
+                id="pmConnectBtn"
+                class="dp-connect-btn"
+                onclick="pmCheckConnect()"
+                title="CafeMaster 서버 연결 확인"
+              >
+                🔌 연결
+              </button>
               <select
                 id="pmPublishProduct"
                 class="pm-action-select"
@@ -9642,6 +9650,38 @@
           if (meta && meta.description) opt.title = meta.description;
           sel.appendChild(opt);
         });
+      }
+
+      async function pmCheckConnect() {
+        const btn = document.getElementById("pmConnectBtn");
+        if (!btn) return;
+        btn.disabled = true;
+        btn.textContent = "🔌 연결 중...";
+        btn.classList.remove("dp-connected");
+        try {
+          const res = await dpFetchFallback(
+            DP_CAFEMASTER_URLS,
+            "/health",
+            { cache: "no-store" },
+            "cafemaster"
+          );
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json().catch(() => ({}));
+          btn.textContent = "✓ 연결됨";
+          btn.classList.add("dp-connected");
+          pmSetActionMsg(
+            "CafeMaster 연결 OK" + (data.message ? ` (${data.message})` : ""),
+            "ok"
+          );
+        } catch (e) {
+          btn.textContent = "🔌 연결 실패 — 재시도";
+          pmSetActionMsg(
+            "연결 실패: " + (e.message || e) + " (서버/URL 확인)",
+            "err"
+          );
+        } finally {
+          btn.disabled = false;
+        }
       }
 
       async function pmPublish() {
