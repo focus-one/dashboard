@@ -9833,24 +9833,13 @@
         }
       }
 
-      // 서버 자동 연결 + 주기 체크
-      //   - 페이지 들어오면 자동으로 /health + /options 한 번 (초기 연결)
-      //   - 이후 30초 간격으로 /health 만 (옵션은 거의 안 바뀌니 재조회 안 함)
-      //   - 실패 시에도 루프 계속 돌며 자동 복구 시도
-      const PM_HEALTH_INTERVAL_MS = 30000;
-      let _pmHealthTimer = null;
+      // 서버 연결 — SSE 기반 실시간 상태 (폴링 아님)
+      //   1) /options 호출 (드롭다운 채움 + 동작 중인 base URL 고정)
+      //   2) 그 base URL 로 EventSource('/events') 연결 → 서버가 상태 푸시
+      //   3) onerror 즉시 🔴 (EventSource 자체가 자동 재연결)
       let _pmOptionsLoaded = false;
-
-      function _pmStartHealthLoop() {
-        if (_pmHealthTimer) return;
-        _pmHealthTimer = setInterval(_pmTickHealth, PM_HEALTH_INTERVAL_MS);
-      }
-      function _pmStopHealthLoop() {
-        if (_pmHealthTimer) {
-          clearInterval(_pmHealthTimer);
-          _pmHealthTimer = null;
-        }
-      }
+      let _pmEventSource = null;
+      let _pmActiveBase = null;
 
       function _pmSetStatus(text, kind) {
         const el = document.getElementById("pmConnectStatus");
@@ -9860,35 +9849,7 @@
         if (kind) el.classList.add(kind);
       }
 
-      // 가벼운 주기 헬스 체크 — /health 만 호출, /options 재조회 안 함
-      async function _pmTickHealth() {
-        try {
-          const r = await dpFetchFallback(
-            DP_CAFEMASTER_URLS,
-            "/health",
-            { cache: "no-store" },
-            "cafemaster",
-          );
-          if (!r.ok) throw new Error("health " + r.status);
-          if (!_pmConnected) {
-            // 복구 — 옵션 아직 로드 안 됐으면 한 번 더
-            if (!_pmOptionsLoaded) {
-              await _pmLoadOptions();
-            } else {
-              _pmConnected = true;
-              _pmSetStatus("🟢 연결됨", "ok");
-            }
-          } else {
-            _pmSetStatus("🟢 연결됨", "ok");
-          }
-        } catch (e) {
-          _pmConnected = false;
-          _pmSetStatus("🔴 연결 끊김", "err");
-          // 재시도 계속됨 (setInterval 유지)
-        }
-      }
-
-      // /options 한 번만 로드 — 드롭다운 채움
+      // 실제 동작하는 base URL 찾기 + /options 로드
       async function _pmLoadOptions() {
         try {
           const optRes = await dpFetchFallback(
@@ -9905,23 +9866,67 @@
           pmSetConnectedDropdowns(cafes, opts.cafeProductMap || {});
           _pmConnected = true;
           _pmOptionsLoaded = true;
+          // dpFetchFallback 이 성공한 base URL 기억 — SSE 도 같은 서버로
+          _pmActiveBase = (_DP_LAST_OK.cafemaster || DP_CAFEMASTER_URLS[0] || "")
+            .replace(/\/$/, "");
           _pmSetStatus(
             `🟢 연결됨 (카페 ${cafes.length} · 제품 ${products.length})`,
             "ok",
           );
+          return true;
         } catch (e) {
           _pmConnected = false;
           _pmOptionsLoaded = false;
           pmSetDisconnectedDropdowns();
           _pmSetStatus("🔴 연결 실패", "err");
+          return false;
         }
       }
 
-      // 페이지 진입 시 자동 호출 (또는 외부에서 수동 트리거 가능하도록 유지)
+      // SSE 연결 — 서버가 상태 푸시, 끊김 시 onerror
+      function _pmStartEventStream() {
+        if (!_pmActiveBase) return;
+        _pmStopEventStream();
+        try {
+          _pmEventSource = new EventSource(_pmActiveBase + "/events");
+        } catch (e) {
+          _pmSetStatus("🔴 SSE 초기화 실패", "err");
+          return;
+        }
+        _pmEventSource.onopen = () => {
+          _pmConnected = true;
+          _pmSetStatus("🟢 연결됨", "ok");
+        };
+        _pmEventSource.addEventListener("state", (ev) => {
+          try {
+            const st = JSON.parse(ev.data);
+            _pmConnected = true;
+            if (st && st.running) {
+              _pmSetStatus(`🟢 실행 중 — ${st.product || "-"}`, "ok");
+            } else {
+              _pmSetStatus("🟢 연결됨", "ok");
+            }
+          } catch (_) {}
+        });
+        _pmEventSource.onerror = () => {
+          // EventSource 는 자동 재연결 — 끊김 상태만 표시
+          _pmConnected = false;
+          _pmSetStatus("🔴 연결 끊김 (자동 재시도)", "err");
+        };
+      }
+
+      function _pmStopEventStream() {
+        if (_pmEventSource) {
+          try { _pmEventSource.close(); } catch (_) {}
+          _pmEventSource = null;
+        }
+      }
+
+      // 페이지 진입 시 호출
       async function pmCheckConnect() {
         _pmSetStatus("🟠 연결 중", "");
-        await _pmLoadOptions();
-        _pmStartHealthLoop();
+        const ok = await _pmLoadOptions();
+        if (ok) _pmStartEventStream();
       }
 
       async function pmPublish() {
