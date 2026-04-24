@@ -8058,6 +8058,7 @@
                 id="dpStartBtn"
                 class="dp-start-btn"
                 onclick="dpStartPost()"
+                disabled
               >
                 발행 시작
               </button>
@@ -8065,6 +8066,7 @@
                 id="dpStopBtn"
                 class="dp-stop-btn"
                 onclick="dpStopPost()"
+                disabled
               >
                 작업 중지
               </button>
@@ -10471,7 +10473,8 @@
               '<span class="dp-log-toggle-hint"></span>';
             liveEl.classList.remove('running');
           }
-          if (startBtn) startBtn.disabled = false;
+          // 연결 실패 시 시작/중지 모두 비활성화 — 연결 성공 후에만 활성화
+          if (startBtn) startBtn.disabled = true;
           if (stopBtn) stopBtn.disabled = true;
           if (connectBtn) {
             connectBtn.textContent = '🔌 연결 실패 — 재시도';
