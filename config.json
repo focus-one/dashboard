@@ -3,7 +3,10 @@
 
   "일상글관리": {
     "_description": "writer.exe 연동 — 일상글 자동 발행",
-    "apiUrls": ["https://desktop-6hpfhqs.tail7fdacf.ts.net"],
+    "apiUrls": [
+      "https://desktop-6hpfhqs.tail7fdacf.ts.net",
+      "https://junho.tail3abbb6.ts.net"
+    ],
     "n8nWebhook": "https://qnwkdi111.app.n8n.cloud/webhook/214511ac-f16e-44b1-a36d-919fb49ff1ae"
   },
 
@@ -11,8 +14,8 @@
     "_description": "CafeMaster.exe 연동 — 제품별 글 발행",
     "_apiUrls_description": "공개 URL 만 나열 (순차 fallback). n8n 콜백도 이 URL 중 하나로 가므로 127.0.0.1 같은 사설 IP 금지.",
     "apiUrls": [
-      "https://rogers-pointing-flight-welcome.trycloudflare.com",
-      "https://desktop-6hpfhqs.tail7fdacf.ts.net"
+      "https://desktop-6hpfhqs.tail7fdacf.ts.net",
+      "https://junho.tail3abbb6.ts.net"
     ],
     "products": {
       "디토락스": {
