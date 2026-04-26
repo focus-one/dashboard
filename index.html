@@ -9667,7 +9667,7 @@
       // ═══════════════════════════════════════════════════════════════
       // 네이버 - 게시물관리 (Google Sheets 연동)
       // ═══════════════════════════════════════════════════════════════
-      const PM_SHEET_ID = "1IvAEq6eMnlxSsx2ktypx6ZEhkZNTbUzg0HsdD0ed7yc";
+      const PM_SHEET_ID = "1Rq7Gb4gIf3fbL2YkajJIruSmMpBHhA9nK_dTBjmXClY";
       // 제품명 ↔ 분류 컬럼 매칭 (시트의 분류 값에 제품명이 들어있을 경우 해당 제품 탭에서 표시)
       const PM_PRODUCT_LABELS = {
         isocuten: "이소큐텐",
@@ -9675,15 +9675,17 @@
         ditolax: "디토락스",
         zairix: "자이릭스",
       };
-      // 월별 탭 (YYYY-MM) 구조 — 10컬럼:
+      // 카페 / 블로그 탭 — 10컬럼 (기존 시트 구조 + 키워드 2칸 추가):
       //   A 제품분류 / B 포스팅날짜 / C 카페종류 / D URL /
-      //   E 타겟키워드 / F 노출키워드 / G 상태 / H 삭제일시 /
-      //   I 오늘조회수 / J 누적조회수
-      // 최근 12개월 탭을 병렬 fetch 후 모두 합쳐서 monthly 그룹 렌더.
-      const PM_FETCH_MONTHS = 12;
-      const PM_CACHE = {}; // { 'all': {rows, ts} }
+      //   E 타겟키워드 / F 노출키워드 /
+      //   G 상태 / H 삭제일시 / I 오늘조회수 / J 누적조회수
+      const PM_SHEET_TABS = {
+        cafe: { sheetName: "카페글 URL" },
+        blog: { sheetName: "블로그 URL" },
+      };
+      const PM_CACHE = {}; // { cafe: {rows, ts}, blog: {rows, ts} }
       let PM_CURRENT_PRODUCT = "ditolax";
-      let PM_CURRENT_URL = "cafe"; // 'cafe' | 'blog' (URL 도메인 기준 필터)
+      let PM_CURRENT_URL = "cafe"; // 'cafe' | 'blog'
       let PM_CURRENT_VIEW = "monthly"; // 'monthly' | 'all'
       const PM_OPEN_MONTHS = new Set(); // 펼쳐진 월 집합
       let pmInited = false;
@@ -10061,74 +10063,52 @@
         }
       }
 
-      // 최근 N개월 탭을 병렬 fetch 후 합치기
-      // 신규 시트 구조: 월별 탭 (YYYY-MM), 10 컬럼.
+      // 카페 또는 블로그 탭 1개 fetch (선택된 탭만)
       async function pmLoad(force) {
         const host = document.getElementById("pmContent");
-        const cached = PM_CACHE["all"];
+        const tabKey = PM_CURRENT_URL;
+        const conf = PM_SHEET_TABS[tabKey];
+        const cached = PM_CACHE[tabKey];
         if (!force && cached && Date.now() - cached.ts < 30000) {
           pmRender();
           return;
         }
         if (host) host.innerHTML = '<div class="pm-empty">불러오는 중...</div>';
-
-        // 최근 N개월 탭 이름 생성
-        const tabs = [];
-        const now = new Date();
-        for (let i = 0; i < PM_FETCH_MONTHS; i++) {
-          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-          tabs.push(
-            `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
-          );
-        }
-
-        async function fetchTab(tabName) {
-          try {
-            const sheetName = encodeURIComponent(tabName);
-            const url = `https://docs.google.com/spreadsheets/d/${PM_SHEET_ID}/gviz/tq?tqx=out:json&headers=1&sheet=${sheetName}&_=${Date.now()}`;
-            const res = await fetch(url, { cache: "no-store" });
-            const text = await res.text();
-            const start = text.indexOf("{");
-            const end = text.lastIndexOf("}") + 1;
-            if (start < 0 || end <= start) return [];
-            const json = JSON.parse(text.substring(start, end));
-            if (json.status === "error") return []; // 탭 없음
-            const rows = (json.table.rows || [])
-              .map((r, idx) => {
-                const cells = r.c || [];
-                const get = (i) => {
-                  const c = cells[i];
-                  if (!c) return "";
-                  return (c.f ?? c.v ?? "").toString().trim();
-                };
-                const numAt = (i) =>
-                  parseInt((get(i) || "").replace(/[^0-9\-]/g, ""), 10) || 0;
-                return {
-                  category: get(0), // A 제품 분류
-                  postDate: get(1), // B 포스팅 날짜
-                  cafeType: get(2), // C 카페 종류
-                  url: get(3), // D URL
-                  targetKw: get(4), // E 타겟 키워드 (편집 가능)
-                  exposureKw: get(5), // F 노출 키워드
-                  status: get(6), // G 상태
-                  delDate: get(7), // H 삭제 일시
-                  todayViews: numAt(8), // I 오늘 조회수
-                  totalViews: numAt(9), // J 누적 조회수
-                  _tab: tabName, // 어느 월별 탭인지 (편집 시 필요)
-                  _row: idx + 2, // gviz 는 헤더 빼고 → 시트 행번호 = idx + 2
-                };
-              })
-              .filter((r) => r.url || r.category || r.postDate);
-            return rows;
-          } catch (_) {
-            return [];
-          }
-        }
-
         try {
-          const results = await Promise.all(tabs.map(fetchTab));
-          const rows = results.flat();
-          PM_CACHE["all"] = { rows, ts: Date.now() };
+          const sheetName = encodeURIComponent(conf.sheetName);
+          const url = `https://docs.google.com/spreadsheets/d/${PM_SHEET_ID}/gviz/tq?tqx=out:json&headers=1&sheet=${sheetName}&_=${Date.now()}`;
+          const res = await fetch(url, { cache: "no-store" });
+          const text = await res.text();
+          const start = text.indexOf("{");
+          const end = text.lastIndexOf("}") + 1;
+          const json = JSON.parse(text.substring(start, end));
+          const rows = (json.table.rows || [])
+            .map((r, idx) => {
+              const cells = r.c || [];
+              const get = (i) => {
+                const c = cells[i];
+                if (!c) return "";
+                return (c.f ?? c.v ?? "").toString().trim();
+              };
+              const numAt = (i) =>
+                parseInt((get(i) || "").replace(/[^0-9\-]/g, ""), 10) || 0;
+              return {
+                category: get(0), // A 제품 분류
+                postDate: get(1), // B 포스팅 날짜
+                cafeType: get(2), // C 카페 종류
+                url: get(3), // D URL
+                targetKw: get(4), // E 타겟 키워드 (편집 가능)
+                exposureKw: get(5), // F 노출 키워드
+                status: get(6), // G 상태
+                delDate: get(7), // H 삭제 일시
+                todayViews: numAt(8), // I 오늘 조회수
+                totalViews: numAt(9), // J 누적 조회수
+                _tab: conf.sheetName, // 시트 탭 이름 (편집 시 필요)
+                _row: idx + 2, // gviz 는 헤더 빼고 → 시트 행번호 = idx + 2
+              };
+            })
+            .filter((r) => r.url || r.category || r.postDate);
+          PM_CACHE[tabKey] = { rows, ts: Date.now() };
           pmRender();
         } catch (e) {
           console.error("pm load error", e);
@@ -10180,16 +10160,13 @@
 
       function pmFilteredRows() {
         const productLabel = PM_PRODUCT_LABELS[PM_CURRENT_PRODUCT];
-        const cached = PM_CACHE["all"];
+        const cached = PM_CACHE[PM_CURRENT_URL];
         const rows = cached ? cached.rows : [];
         return rows.filter((r) => {
           // 제품 필터: 분류 값에 제품명이 포함되어야 함
           if (productLabel && r.category && !r.category.includes(productLabel))
             return false;
           if (productLabel && !r.category) return false;
-          // URL 도메인 필터 (cafe / blog)
-          if (PM_CURRENT_URL === "cafe" && !pmIsCafeUrl(r.url)) return false;
-          if (PM_CURRENT_URL === "blog" && !pmIsBlogUrl(r.url)) return false;
           return true;
         });
       }
