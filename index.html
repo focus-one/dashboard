@@ -998,6 +998,15 @@
         font-size: 12.5px;
         border-bottom: 1px dashed #f1f2f4;
       }
+      /* 모든 셀 좌측 정렬 강제 — 첫 행만 가운데 보이는 것 fix */
+      .pm-post-row > div {
+        text-align: left;
+        justify-self: stretch;
+        min-width: 0; /* grid item 텍스트 overflow 방지 */
+      }
+      .pm-post-row > div.pm-col-views {
+        text-align: right;
+      }
       /* 블로그 탭: 카페 종류 컬럼 없음 (8컬럼) */
       .pm-post-row.pm-blog,
       .pm-col-head.pm-blog {
@@ -10120,12 +10129,23 @@
         }
       }
 
-      // YYYY-MM 월 키 추출 (여러 형식 대응: "2026. 4. 17", "2026-04-17", "26.04.17", "4/16")
+      // YYYY-MM 월 키 추출 (여러 형식 대응)
+      //   "2026. 4. 17", "2026-04-17", "26.04.17", "4/16",
+      //   "04월 14일", "2026년 4월 14일" 등 한글 표기 포함
       function pmMonthKey(dateStr) {
         if (!dateStr) return "";
         const s = String(dateStr).trim();
-        // YYYY-MM-DD 또는 YYYY-M-D
-        let m = s.match(/^(\d{4})[.\-/]\s*(\d{1,2})/);
+        // YYYY년 M월 (한글)
+        let m = s.match(/^(\d{4})년\s*(\d{1,2})월/);
+        if (m) return `${m[1]}-${m[2].padStart(2, "0")}`;
+        // M월 D일 (연도 없음 — 현재 연도)
+        m = s.match(/^(\d{1,2})월\s*\d{1,2}일/);
+        if (m) {
+          const yyyy = new Date().getFullYear();
+          return `${yyyy}-${m[1].padStart(2, "0")}`;
+        }
+        // YYYY-MM-DD 또는 YYYY-M-D / YYYY.M.D / YYYY/M/D
+        m = s.match(/^(\d{4})[.\-/]\s*(\d{1,2})/);
         if (m) return `${m[1]}-${m[2].padStart(2, "0")}`;
         // YY.MM.DD (2자리 연도)
         m = s.match(/^(\d{2})[.\-/]\s*(\d{1,2})[.\-/]\s*\d{1,2}/);
@@ -10312,7 +10332,7 @@
     </div>`;
       }
 
-      // 타겟 키워드 셀 변경 시 백엔드로 저장 요청
+      // 타겟 키워드 셀 변경 시 백엔드로 저장 요청 (여러 URL 순차 fallback)
       async function pmSaveTarget(inputEl) {
         const tab = inputEl.dataset.tab;
         const row = parseInt(inputEl.dataset.row, 10);
@@ -10320,36 +10340,56 @@
         const next = inputEl.value.trim();
         if (next === orig) return; // 변경 없음
         if (!tab || !row) return;
-        // 시각 표시 — 저장 중
         inputEl.classList.add("saving");
-        const base = _pmActiveBase || (DP_CAFEMASTER_URLS && DP_CAFEMASTER_URLS[0]);
-        if (!base) {
+
+        // 시도할 URL 순서: 활성 연결된 base 우선, 없으면 설정된 URL 들
+        const urls = [];
+        if (_pmActiveBase) urls.push(_pmActiveBase);
+        if (Array.isArray(DP_CAFEMASTER_URLS)) {
+          for (const u of DP_CAFEMASTER_URLS) {
+            if (u && !urls.includes(u)) urls.push(u);
+          }
+        }
+        // mixed-content 방지: 페이지가 https 면 http 제외
+        const filtered = urls.filter(
+          (u) => location.protocol !== "https:" || u.startsWith("https://"),
+        );
+        if (filtered.length === 0) {
           inputEl.value = orig;
           inputEl.classList.remove("saving");
-          alert("백엔드 미연결 — 타겟 키워드 저장 불가");
+          alert("백엔드 URL 없음 (https 사용 가능한 것)");
           return;
         }
-        try {
-          const res = await fetch(`${base}/post-management/update-target`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ tab, row, value: next }),
-          });
-          const j = await res.json();
-          if (!res.ok || !j.ok) {
-            inputEl.value = orig;
-            alert(`저장 실패: ${(j && j.message) || res.status}`);
-          } else {
+
+        let lastErr = null;
+        for (const base of filtered) {
+          try {
+            const res = await fetch(`${base}/post-management/update-target`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ tab, row, value: next }),
+            });
+            const j = await res.json().catch(() => ({}));
+            if (!res.ok || !j.ok) {
+              lastErr = `${res.status}: ${(j && j.message) || "?"}`;
+              continue;
+            }
+            // 성공
             inputEl.dataset.orig = next;
             inputEl.classList.add("saved");
             setTimeout(() => inputEl.classList.remove("saved"), 1500);
+            inputEl.classList.remove("saving");
+            return;
+          } catch (e) {
+            lastErr = (e && e.message) || String(e);
+            continue;
           }
-        } catch (e) {
-          inputEl.value = orig;
-          alert(`저장 오류: ${(e && e.message) || e}`);
-        } finally {
-          inputEl.classList.remove("saving");
         }
+
+        // 다 실패
+        inputEl.value = orig;
+        inputEl.classList.remove("saving");
+        alert(`저장 실패 (모든 백엔드 URL 시도): ${lastErr}`);
       }
 
       function pmToggleMonth(key, el) {
