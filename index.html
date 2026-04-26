@@ -10332,6 +10332,7 @@
         const todayCls = "pm-col-views" + (r.todayViews ? "" : " zero");
         const totalCls = "pm-col-views" + (r.totalViews ? "" : " zero");
         // 타겟 키워드 인라인 편집 (blur 시 저장, 변경 없으면 무시)
+        // IME 조합 중 Enter 는 무시 — 한글 마지막 글자 중복 방지
         const targetCell = `<div>
         <input class="pm-target-input"
                type="text"
@@ -10341,8 +10342,10 @@
                data-orig="${kmEsc(r.targetKw || "")}"
                placeholder="타겟 키워드 입력..."
                onclick="event.stopPropagation()"
+               oncompositionstart="this.dataset.composing='1'"
+               oncompositionend="this.dataset.composing=''"
                onblur="pmSaveTarget(this)"
-               onkeydown="if(event.key==='Enter'){this.blur();}" />
+               onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode!==229 && this.dataset.composing!=='1'){this.blur();}" />
       </div>`;
         return `<div class="pm-post-row${blogCls}" ${style}>
       <div>${kmEsc(r.postDate)}</div>
@@ -10359,12 +10362,15 @@
 
       // 타겟 키워드 셀 변경 시 백엔드로 저장 요청 (여러 URL 순차 fallback)
       async function pmSaveTarget(inputEl) {
+        // 재진입 가드 — onblur 중복 발화 / Enter+클릭 동시 케이스 차단
+        if (inputEl.dataset.saving === "1") return;
         const tab = inputEl.dataset.tab;
         const row = parseInt(inputEl.dataset.row, 10);
         const orig = inputEl.dataset.orig;
         const next = inputEl.value.trim();
         if (next === orig) return; // 변경 없음
         if (!tab || !row) return;
+        inputEl.dataset.saving = "1";
         inputEl.classList.add("saving");
 
         // 시도할 URL 순서: 활성 연결된 base 우선, 없으면 설정된 URL 들
@@ -10382,6 +10388,7 @@
         if (filtered.length === 0) {
           inputEl.value = orig;
           inputEl.classList.remove("saving");
+          delete inputEl.dataset.saving;
           alert("백엔드 URL 없음 (https 사용 가능한 것)");
           return;
         }
@@ -10396,7 +10403,7 @@
             });
             const j = await res.json().catch(() => ({}));
             if (!res.ok || !j.ok) {
-              lastErr = `${res.status}: ${(j && j.message) || "?"}`;
+              lastErr = `${res.status}: ${(j && j.message) || "?"} @${base}`;
               continue;
             }
             // 성공
@@ -10404,16 +10411,19 @@
             inputEl.classList.add("saved");
             setTimeout(() => inputEl.classList.remove("saved"), 1500);
             inputEl.classList.remove("saving");
+            delete inputEl.dataset.saving;
             return;
           } catch (e) {
-            lastErr = (e && e.message) || String(e);
+            lastErr = `${(e && e.message) || String(e)} @${base}`;
+            console.error("pmSaveTarget fetch fail:", base, e);
             continue;
           }
         }
 
-        // 다 실패
+        // 다 실패 — 원복 + alert 1회
         inputEl.value = orig;
         inputEl.classList.remove("saving");
+        delete inputEl.dataset.saving;
         alert(`저장 실패 (모든 백엔드 URL 시도): ${lastErr}`);
       }
 
