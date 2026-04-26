@@ -985,11 +985,12 @@
         display: block;
       }
 
-      /* 월 본문 내 게시물 리스트 — 제품 분류 컬럼 제거 (상단 제품 탭으로 대체됨) */
+      /* 월 본문 내 게시물 리스트 — 9컬럼: 날짜/카페/URL/타겟/노출/상태/삭제/오늘/누적 */
       .pm-post-row {
         display: grid;
         grid-template-columns:
-          100px minmax(120px, 0.9fr) minmax(220px, 1.8fr)
+          100px minmax(110px, 0.9fr) minmax(200px, 1.6fr)
+          minmax(110px, 0.9fr) minmax(110px, 0.9fr)
           80px 100px 82px 82px;
         gap: 10px;
         align-items: center;
@@ -997,10 +998,36 @@
         font-size: 12.5px;
         border-bottom: 1px dashed #f1f2f4;
       }
-      /* 블로그 탭: 카페 종류 컬럼 없음 (6컬럼) */
+      /* 블로그 탭: 카페 종류 컬럼 없음 (8컬럼) */
       .pm-post-row.pm-blog,
       .pm-col-head.pm-blog {
-        grid-template-columns: 100px minmax(240px, 1.8fr) 80px 100px 82px 82px;
+        grid-template-columns:
+          100px minmax(240px, 1.6fr)
+          minmax(110px, 0.9fr) minmax(110px, 0.9fr)
+          80px 100px 82px 82px;
+      }
+      /* 타겟 키워드 입력 셀 */
+      .pm-target-input {
+        width: 100%;
+        padding: 4px 8px;
+        font-size: 12px;
+        border: 1px solid #e5e7eb;
+        border-radius: 4px;
+        background: #fff;
+        color: #111827;
+        outline: none;
+      }
+      .pm-target-input:focus {
+        border-color: var(--accent-blue);
+        background: #f8fbff;
+      }
+      .pm-target-input.saving {
+        border-color: #f59e0b;
+        background: #fffbeb;
+      }
+      .pm-target-input.saved {
+        border-color: #10b981;
+        background: #ecfdf5;
       }
       .pm-col-views {
         text-align: right;
@@ -1027,8 +1054,9 @@
       .pm-col-head {
         display: grid;
         grid-template-columns:
-          90px 110px minmax(140px, 1fr) minmax(240px, 2fr)
-          90px 110px;
+          100px minmax(110px, 0.9fr) minmax(200px, 1.6fr)
+          minmax(110px, 0.9fr) minmax(110px, 0.9fr)
+          80px 100px 82px 82px;
         gap: 10px;
         padding: 6px 18px 6px 40px;
         font-size: 11px;
@@ -9639,7 +9667,7 @@
       // ═══════════════════════════════════════════════════════════════
       // 네이버 - 게시물관리 (Google Sheets 연동)
       // ═══════════════════════════════════════════════════════════════
-      const PM_SHEET_ID = "1Rq7Gb4gIf3fbL2YkajJIruSmMpBHhA9nK_dTBjmXClY";
+      const PM_SHEET_ID = "1IvAEq6eMnlxSsx2ktypx6ZEhkZNTbUzg0HsdD0ed7yc";
       // 제품명 ↔ 분류 컬럼 매칭 (시트의 분류 값에 제품명이 들어있을 경우 해당 제품 탭에서 표시)
       const PM_PRODUCT_LABELS = {
         isocuten: "이소큐텐",
@@ -9647,27 +9675,15 @@
         ditolax: "디토락스",
         zairix: "자이릭스",
       };
-      // 탭별 시트 이름 + 컬럼 매핑
-      //   - 카페글 URL (8컬럼): A분류 / B포스팅 / C카페종류 / D URL / E상태 / F삭제 / G오늘조회수 / H누적조회수
-      //   - 블로그 URL (5~7컬럼): A분류 / B포스팅 / C URL / D상태 / E삭제 / [F오늘조회수] / [G누적조회수]
-      //     블로그는 조회수 컬럼이 아직 없어도 빈 값으로 안전 처리
-      const PM_SHEET_TABS = {
-        cafe: {
-          sheetName: "카페글 URL",
-          hasCafeType: true,
-          todayIdx: 6,
-          totalIdx: 7,
-        },
-        blog: {
-          sheetName: "블로그 URL",
-          hasCafeType: false,
-          todayIdx: 5,
-          totalIdx: 6,
-        },
-      };
-      const PM_CACHE = {}; // { cafe: {rows, ts}, blog: {rows, ts} }
-      let PM_CURRENT_PRODUCT = "isocuten";
-      let PM_CURRENT_URL = "cafe"; // 'cafe' | 'blog'
+      // 월별 탭 (YYYY-MM) 구조 — 10컬럼:
+      //   A 제품분류 / B 포스팅날짜 / C 카페종류 / D URL /
+      //   E 타겟키워드 / F 노출키워드 / G 상태 / H 삭제일시 /
+      //   I 오늘조회수 / J 누적조회수
+      // 최근 12개월 탭을 병렬 fetch 후 모두 합쳐서 monthly 그룹 렌더.
+      const PM_FETCH_MONTHS = 12;
+      const PM_CACHE = {}; // { 'all': {rows, ts} }
+      let PM_CURRENT_PRODUCT = "ditolax";
+      let PM_CURRENT_URL = "cafe"; // 'cafe' | 'blog' (URL 도메인 기준 필터)
       let PM_CURRENT_VIEW = "monthly"; // 'monthly' | 'all'
       const PM_OPEN_MONTHS = new Set(); // 펼쳐진 월 집합
       let pmInited = false;
@@ -10045,57 +10061,74 @@
         }
       }
 
+      // 최근 N개월 탭을 병렬 fetch 후 합치기
+      // 신규 시트 구조: 월별 탭 (YYYY-MM), 10 컬럼.
       async function pmLoad(force) {
         const host = document.getElementById("pmContent");
-        const tabKey = PM_CURRENT_URL;
-        const conf = PM_SHEET_TABS[tabKey];
-        const cached = PM_CACHE[tabKey];
+        const cached = PM_CACHE["all"];
         if (!force && cached && Date.now() - cached.ts < 30000) {
           pmRender();
           return;
         }
         if (host) host.innerHTML = '<div class="pm-empty">불러오는 중...</div>';
+
+        // 최근 N개월 탭 이름 생성
+        const tabs = [];
+        const now = new Date();
+        for (let i = 0; i < PM_FETCH_MONTHS; i++) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          tabs.push(
+            `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+          );
+        }
+
+        async function fetchTab(tabName) {
+          try {
+            const sheetName = encodeURIComponent(tabName);
+            const url = `https://docs.google.com/spreadsheets/d/${PM_SHEET_ID}/gviz/tq?tqx=out:json&headers=1&sheet=${sheetName}&_=${Date.now()}`;
+            const res = await fetch(url, { cache: "no-store" });
+            const text = await res.text();
+            const start = text.indexOf("{");
+            const end = text.lastIndexOf("}") + 1;
+            if (start < 0 || end <= start) return [];
+            const json = JSON.parse(text.substring(start, end));
+            if (json.status === "error") return []; // 탭 없음
+            const rows = (json.table.rows || [])
+              .map((r, idx) => {
+                const cells = r.c || [];
+                const get = (i) => {
+                  const c = cells[i];
+                  if (!c) return "";
+                  return (c.f ?? c.v ?? "").toString().trim();
+                };
+                const numAt = (i) =>
+                  parseInt((get(i) || "").replace(/[^0-9\-]/g, ""), 10) || 0;
+                return {
+                  category: get(0), // A 제품 분류
+                  postDate: get(1), // B 포스팅 날짜
+                  cafeType: get(2), // C 카페 종류
+                  url: get(3), // D URL
+                  targetKw: get(4), // E 타겟 키워드 (편집 가능)
+                  exposureKw: get(5), // F 노출 키워드
+                  status: get(6), // G 상태
+                  delDate: get(7), // H 삭제 일시
+                  todayViews: numAt(8), // I 오늘 조회수
+                  totalViews: numAt(9), // J 누적 조회수
+                  _tab: tabName, // 어느 월별 탭인지 (편집 시 필요)
+                  _row: idx + 2, // gviz 는 헤더 빼고 → 시트 행번호 = idx + 2
+                };
+              })
+              .filter((r) => r.url || r.category || r.postDate);
+            return rows;
+          } catch (_) {
+            return [];
+          }
+        }
+
         try {
-          const sheetName = encodeURIComponent(conf.sheetName);
-          const url = `https://docs.google.com/spreadsheets/d/${PM_SHEET_ID}/gviz/tq?tqx=out:json&headers=1&sheet=${sheetName}&_=${Date.now()}`;
-          const res = await fetch(url, { cache: "no-store" });
-          const text = await res.text();
-          const start = text.indexOf("{");
-          const end = text.lastIndexOf("}") + 1;
-          const json = JSON.parse(text.substring(start, end));
-          const rows = (json.table.rows || [])
-            .map((r) => {
-              const cells = r.c || [];
-              const get = (i) => {
-                const c = cells[i];
-                if (!c) return "";
-                return (c.f ?? c.v ?? "").toString().trim();
-              };
-              const numAt = (i) =>
-                parseInt((get(i) || "").replace(/[^0-9\-]/g, ""), 10) || 0;
-              const base = conf.hasCafeType
-                ? {
-                    category: get(0),
-                    postDate: get(1),
-                    cafeType: get(2),
-                    url: get(3),
-                    status: get(4),
-                    delDate: get(5),
-                  }
-                : {
-                    category: get(0),
-                    postDate: get(1),
-                    cafeType: "",
-                    url: get(2),
-                    status: get(3),
-                    delDate: get(4),
-                  };
-              base.todayViews = numAt(conf.todayIdx);
-              base.totalViews = numAt(conf.totalIdx);
-              return base;
-            })
-            .filter((r) => r.url || r.category || r.postDate);
-          PM_CACHE[tabKey] = { rows, ts: Date.now() };
+          const results = await Promise.all(tabs.map(fetchTab));
+          const rows = results.flat();
+          PM_CACHE["all"] = { rows, ts: Date.now() };
           pmRender();
         } catch (e) {
           console.error("pm load error", e);
@@ -10147,13 +10180,16 @@
 
       function pmFilteredRows() {
         const productLabel = PM_PRODUCT_LABELS[PM_CURRENT_PRODUCT];
-        const cached = PM_CACHE[PM_CURRENT_URL];
+        const cached = PM_CACHE["all"];
         const rows = cached ? cached.rows : [];
         return rows.filter((r) => {
           // 제품 필터: 분류 값에 제품명이 포함되어야 함
           if (productLabel && r.category && !r.category.includes(productLabel))
             return false;
           if (productLabel && !r.category) return false;
+          // URL 도메인 필터 (cafe / blog)
+          if (PM_CURRENT_URL === "cafe" && !pmIsCafeUrl(r.url)) return false;
+          if (PM_CURRENT_URL === "blog" && !pmIsBlogUrl(r.url)) return false;
           return true;
         });
       }
@@ -10254,6 +10290,8 @@
       <div>포스팅 날짜</div>
       ${cafeCol}
       <div>URL</div>
+      <div>타겟 키워드</div>
+      <div>노출 키워드</div>
       <div>상태</div>
       <div>삭제 일시</div>
       <div class="pm-col-views">오늘 조회수</div>
@@ -10271,15 +10309,70 @@
         const cafeCell = isBlog ? "" : `<div>${kmEsc(r.cafeType)}</div>`;
         const todayCls = "pm-col-views" + (r.todayViews ? "" : " zero");
         const totalCls = "pm-col-views" + (r.totalViews ? "" : " zero");
+        // 타겟 키워드 인라인 편집 (blur 시 저장, 변경 없으면 무시)
+        const targetCell = `<div>
+        <input class="pm-target-input"
+               type="text"
+               value="${kmEsc(r.targetKw || "")}"
+               data-tab="${kmEsc(r._tab)}"
+               data-row="${r._row}"
+               data-orig="${kmEsc(r.targetKw || "")}"
+               placeholder="타겟 키워드 입력..."
+               onclick="event.stopPropagation()"
+               onblur="pmSaveTarget(this)"
+               onkeydown="if(event.key==='Enter'){this.blur();}" />
+      </div>`;
         return `<div class="pm-post-row${blogCls}" ${style}>
       <div>${kmEsc(r.postDate)}</div>
       ${cafeCell}
       <div class="pm-col-url">${urlCell}</div>
+      ${targetCell}
+      <div>${kmEsc(r.exposureKw || "")}</div>
       <div>${pmStatusBadge(r.status, r)}</div>
       <div>${kmEsc(r.delDate)}</div>
       <div class="${todayCls}">${(r.todayViews || 0).toLocaleString()}</div>
       <div class="${totalCls}">${(r.totalViews || 0).toLocaleString()}</div>
     </div>`;
+      }
+
+      // 타겟 키워드 셀 변경 시 백엔드로 저장 요청
+      async function pmSaveTarget(inputEl) {
+        const tab = inputEl.dataset.tab;
+        const row = parseInt(inputEl.dataset.row, 10);
+        const orig = inputEl.dataset.orig;
+        const next = inputEl.value.trim();
+        if (next === orig) return; // 변경 없음
+        if (!tab || !row) return;
+        // 시각 표시 — 저장 중
+        inputEl.classList.add("saving");
+        const base = _pmActiveBase || (DP_CAFEMASTER_URLS && DP_CAFEMASTER_URLS[0]);
+        if (!base) {
+          inputEl.value = orig;
+          inputEl.classList.remove("saving");
+          alert("백엔드 미연결 — 타겟 키워드 저장 불가");
+          return;
+        }
+        try {
+          const res = await fetch(`${base}/post-management/update-target`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tab, row, value: next }),
+          });
+          const j = await res.json();
+          if (!res.ok || !j.ok) {
+            inputEl.value = orig;
+            alert(`저장 실패: ${(j && j.message) || res.status}`);
+          } else {
+            inputEl.dataset.orig = next;
+            inputEl.classList.add("saved");
+            setTimeout(() => inputEl.classList.remove("saved"), 1500);
+          }
+        } catch (e) {
+          inputEl.value = orig;
+          alert(`저장 오류: ${(e && e.message) || e}`);
+        } finally {
+          inputEl.classList.remove("saving");
+        }
       }
 
       function pmToggleMonth(key, el) {
