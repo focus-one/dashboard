@@ -990,19 +990,24 @@
         display: grid;
         grid-template-columns:
           100px minmax(110px, 0.9fr) minmax(200px, 1.6fr)
-          minmax(110px, 0.9fr) minmax(110px, 0.9fr)
-          80px 100px 82px 82px;
-        gap: 10px;
+          minmax(130px, 1fr) minmax(130px, 1fr)
+          80px 110px 82px 82px;
+        gap: 14px;
         align-items: center;
-        padding: 8px 18px 8px 40px;
+        padding: 11px 18px 11px 40px;
         font-size: 12.5px;
-        border-bottom: 1px dashed #f1f2f4;
+        color: #374151;
+        border-bottom: 1px solid #f3f4f6;
+        transition: background 0.12s ease;
       }
-      /* 모든 셀 좌측 정렬 강제 — 첫 행만 가운데 보이는 것 fix */
+      /* 모든 셀 좌측 정렬 + 텍스트 오버플로우 ellipsis */
       .pm-post-row > div {
         text-align: left;
         justify-self: stretch;
-        min-width: 0; /* grid item 텍스트 overflow 방지 */
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       .pm-post-row > div.pm-col-views {
         text-align: right;
@@ -1012,50 +1017,65 @@
       .pm-col-head.pm-blog {
         grid-template-columns:
           100px minmax(240px, 1.6fr)
-          minmax(110px, 0.9fr) minmax(110px, 0.9fr)
-          80px 100px 82px 82px;
+          minmax(130px, 1fr) minmax(130px, 1fr)
+          80px 110px 82px 82px;
       }
       /* 타겟 키워드 입력 셀 */
       .pm-target-input {
         width: 100%;
-        padding: 4px 8px;
-        font-size: 12px;
+        padding: 6px 10px;
+        font-size: 12.5px;
+        font-family: inherit;
         border: 1px solid #e5e7eb;
-        border-radius: 4px;
-        background: #fff;
+        border-radius: 6px;
+        background: #fafbfc;
         color: #111827;
         outline: none;
+        transition: all 0.12s ease;
+      }
+      .pm-target-input::placeholder {
+        color: #9ca3af;
+        font-size: 12px;
+      }
+      .pm-target-input:hover {
+        background: #fff;
+        border-color: #d1d5db;
       }
       .pm-target-input:focus {
         border-color: var(--accent-blue);
-        background: #f8fbff;
+        background: #fff;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
       }
       .pm-target-input.saving {
         border-color: #f59e0b;
         background: #fffbeb;
+        box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
       }
       .pm-target-input.saved {
         border-color: #10b981;
         background: #ecfdf5;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
       }
       .pm-col-views {
         text-align: right;
         font-variant-numeric: tabular-nums;
         color: #4b5563;
+        font-weight: 500;
       }
       .pm-col-views.zero {
         color: #d1d5db;
+        font-weight: 400;
       }
       .pm-post-row:last-child {
         border-bottom: none;
       }
       .pm-post-row:hover {
-        background: #f9fafb;
+        background: #fafbfc;
       }
       .pm-post-row .pm-col-url a {
         color: var(--accent-blue);
         text-decoration: none;
-        font-size: 11.5px;
+        font-size: 12px;
       }
       .pm-post-row .pm-col-url a:hover {
         text-decoration: underline;
@@ -1064,15 +1084,20 @@
         display: grid;
         grid-template-columns:
           100px minmax(110px, 0.9fr) minmax(200px, 1.6fr)
-          minmax(110px, 0.9fr) minmax(110px, 0.9fr)
-          80px 100px 82px 82px;
-        gap: 10px;
-        padding: 6px 18px 6px 40px;
+          minmax(130px, 1fr) minmax(130px, 1fr)
+          80px 110px 82px 82px;
+        gap: 14px;
+        padding: 10px 18px 10px 40px;
         font-size: 11px;
-        font-weight: 700;
-        color: var(--text-muted);
-        background: #f9fafb;
-        border-bottom: 1px solid var(--border);
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: #6b7280;
+        background: #fafbfc;
+        border-bottom: 1px solid #e5e7eb;
+        text-transform: none;
+      }
+      .pm-col-head > div.pm-col-views {
+        text-align: right;
       }
       .pm-status-badge {
         display: inline-block;
