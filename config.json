@@ -1,24 +1,23 @@
 {
-  "_comment": "대시보드 사이드바 메뉴별 API 설정. apiUrls는 배열 — 순차 fallback 시도.",
+  "_comment": "대시보드 사이드바 메뉴별 API 설정. 백엔드 = 통합 CafeAuto.exe (포트 8766). PC 의 config.json 역할.이름 으로 라우팅.",
+
+  "apiUrls": [
+    "https://desktop-6hpfhqs.tail7fdacf.ts.net",
+    "https://junho.tail3abbb6.ts.net",
+    "https://macbook-pro-16.tail3abbb6.ts.net"
+  ],
+  "_apiUrls_description": "PC Tailscale Funnel URL 풀 — 메뉴 무관 공용. 어느 PC 가 응답하는지는 PC config.json 의 역할.이름 으로 결정.",
 
   "일상글관리": {
-    "_description": "writer.exe 연동 — 일상글 자동 발행",
-    "apiUrls": [
-      "https://desktop-6hpfhqs.tail7fdacf.ts.net",
-      "https://junho.tail3abbb6.ts.net",
-      "https://macbook-pro-16.tail3abbb6.ts.net"
-    ],
+    "_description": "일상글 자동 발행 — '게시글작성' 역할 PC 가 처리 (write_runner)",
+    "endpoint": "/write/start",
+    "cafesEndpoint": "/write/cafes",
     "n8nWebhook": "https://qnwkdi111.app.n8n.cloud/webhook/214511ac-f16e-44b1-a36d-919fb49ff1ae"
   },
 
   "게시물관리": {
-    "_description": "CafeMaster.exe 연동 — 제품별 글 발행",
-    "_apiUrls_description": "공개 URL 만 나열 (순차 fallback). n8n 콜백도 이 URL 중 하나로 가므로 127.0.0.1 같은 사설 IP 금지.",
-    "apiUrls": [
-      "https://desktop-6hpfhqs.tail7fdacf.ts.net",
-      "https://junho.tail3abbb6.ts.net",
-      "https://macbook-pro-16.tail3abbb6.ts.net"
-    ],
+    "_description": "게시글 수정 + 댓글 — '게시글수정' 역할 PC 가 처리 (edit_runner)",
+    "endpoint": "/start",
     "products": {
       "디토락스": {
         "description": "",

@@ -10061,11 +10061,11 @@
           );
         const body = JSON.stringify({ cafe, product, callback_base_url: callbackBase });
 
-        // n8n webhook + CafeMaster /start 병렬 호출
+        // n8n webhook + 백엔드(/start) 병렬 호출 — 게시글수정 PC 가 처리
         const tasks = [
           dpFetchFallback(
             DP_CAFEMASTER_URLS,
-            "/start",
+            DP_EDIT_ENDPOINT,
             { method: "POST", headers, body },
             "cafemaster",
           )
@@ -10483,10 +10483,15 @@
       const DP_TWENTY_FOUR_H_MS = 24 * 60 * 60 * 1000;
       // config.json에서 로드 (loadDashboardConfig() 참고). 네트워크 실패 시 아래 기본값 fallback.
       // 사이드바 메뉴별 그룹핑 구조 + apiUrls 배열 (순차 fallback)
-      let DP_WRITER_URLS = ["http://127.0.0.1:8765"]; // 일상글관리 (writer.exe)
+      // 통합 backend (CafeAuto.exe, 포트 8766) — 메뉴별 endpoint 만 다름. 동일 PC 풀 공유.
+      let DP_API_URLS = ["http://127.0.0.1:8766"];
+      let DP_WRITER_URLS = DP_API_URLS; // 일상글관리 (역할: 게시글작성 PC)
+      let DP_CAFEMASTER_URLS = DP_API_URLS; // 게시물관리 (역할: 게시글수정 PC)
+      let DP_WRITE_ENDPOINT = "/write/start"; // 일상글 발행
+      let DP_WRITE_CAFES_ENDPOINT = "/write/cafes"; // 일상글 카페 드롭다운 프록시
+      let DP_EDIT_ENDPOINT = "/start"; // 게시물 수정 시작
       let DP_N8N_WEBHOOK_URL =
         "https://qnwkdi111.app.n8n.cloud/webhook/214511ac-f16e-44b1-a36d-919fb49ff1ae";
-      let DP_CAFEMASTER_URLS = ["http://127.0.0.1:8766"]; // 게시물관리 (CafeMaster.exe)
       let DP_PM_PRODUCTS = {}; // 제품별 설정 {product: {description, n8nWebhook, driveFolderId}}
 
       // 메뉴별 마지막 성공 URL 캐시 (세션 내 — 재시도 최소화)
@@ -10525,22 +10530,34 @@
           });
           if (!res.ok) return;
           const cfg = await res.json();
-          // 일상글관리
+          // 공용 apiUrls (통합 backend) — 메뉴별 동일 PC 풀
+          if (Array.isArray(cfg.apiUrls) && cfg.apiUrls.length) {
+            DP_API_URLS = cfg.apiUrls;
+            DP_WRITER_URLS = cfg.apiUrls;
+            DP_CAFEMASTER_URLS = cfg.apiUrls;
+          }
+          // 일상글관리 — endpoint / cafesEndpoint / n8nWebhook
           const ilsang = cfg["일상글관리"] || {};
+          // 구버전 호환 — 메뉴별 apiUrls 가 따로 정의돼 있으면 override
           if (Array.isArray(ilsang.apiUrls) && ilsang.apiUrls.length)
             DP_WRITER_URLS = ilsang.apiUrls;
-          else if (ilsang.apiUrl) DP_WRITER_URLS = [ilsang.apiUrl]; // 구버전 호환
+          else if (ilsang.apiUrl) DP_WRITER_URLS = [ilsang.apiUrl];
+          if (ilsang.endpoint) DP_WRITE_ENDPOINT = ilsang.endpoint;
+          if (ilsang.cafesEndpoint) DP_WRITE_CAFES_ENDPOINT = ilsang.cafesEndpoint;
           if (ilsang.n8nWebhook) DP_N8N_WEBHOOK_URL = ilsang.n8nWebhook;
-          // 게시물관리
+          // 게시물관리 — endpoint / products
           const gsm = cfg["게시물관리"] || {};
           if (Array.isArray(gsm.apiUrls) && gsm.apiUrls.length)
             DP_CAFEMASTER_URLS = gsm.apiUrls;
           else if (gsm.apiUrl) DP_CAFEMASTER_URLS = [gsm.apiUrl];
+          if (gsm.endpoint) DP_EDIT_ENDPOINT = gsm.endpoint;
           if (gsm.products) DP_PM_PRODUCTS = gsm.products;
           console.log("[config] loaded:", {
-            DP_WRITER_URLS,
+            DP_API_URLS,
+            DP_WRITE_ENDPOINT,
+            DP_WRITE_CAFES_ENDPOINT,
+            DP_EDIT_ENDPOINT,
             DP_N8N_WEBHOOK_URL,
-            DP_CAFEMASTER_URLS,
             DP_PM_PRODUCTS: Object.keys(DP_PM_PRODUCTS),
           });
         } catch (e) {
@@ -10570,10 +10587,10 @@
         if (host) host.innerHTML = '<div class="dp-empty">불러오는 중...</div>';
 
         try {
-          // URL 시트는 비공개라 dashboard에서 직접 못 읽음 → writer 프록시로 우회
+          // URL 시트는 비공개라 dashboard에서 직접 못 읽음 → 백엔드 프록시(/write/cafes)로 우회
           const writerCafesPromise = dpFetchFallback(
             DP_WRITER_URLS,
-            "/cafes",
+            DP_WRITE_CAFES_ENDPOINT,
             { cache: "no-store" },
             "writer",
           )
@@ -11100,7 +11117,7 @@
           return setMsg("계정 전환 대기 시간을 확인하세요 (min ≤ max)", "err");
 
         btn.disabled = true;
-        setMsg("writer exe + n8n에 병렬 요청 중...", "");
+        setMsg("백엔드(/write/start) + n8n 병렬 요청 중...", "");
 
         const payload = {
           cafe,
@@ -11119,7 +11136,7 @@
         const [writerRes, n8nRes] = await Promise.allSettled([
           dpFetchFallback(
             DP_WRITER_URLS,
-            "/start",
+            DP_WRITE_ENDPOINT,
             { method: "POST", headers, body },
             "writer",
           ),
