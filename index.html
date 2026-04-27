@@ -9915,6 +9915,7 @@
       }
 
       // 실제 동작하는 base URL 찾기 + /options 로드
+      // role 매칭 ('게시글수정' 또는 '전체') 안 되면 SSE 안 시작 — 다른 PC 가 처리
       async function _pmLoadOptions() {
         try {
           const optRes = await dpFetchFallback(
@@ -9926,12 +9927,21 @@
           if (!optRes.ok) throw new Error("options HTTP " + optRes.status);
           const opts = await optRes.json();
           if (!opts.ok) throw new Error(opts.message || "options failed");
+          // 역할 체크 — 이 PC 가 게시물관리 담당 아니면 비활성
+          const role = (opts.role || "").trim();
+          if (role && role !== "게시글수정" && role !== "전체") {
+            _pmConnected = false;
+            _pmOptionsLoaded = false;
+            pmSetDisconnectedDropdowns();
+            _pmSetStatus(`⚪ 비활성 (이 PC 역할: ${role})`, "");
+            _pmActiveBase = null;
+            return false;
+          }
           const cafes = opts.cafes || [];
           const products = opts.products || [];
           pmSetConnectedDropdowns(cafes, opts.cafeProductMap || {});
           _pmConnected = true;
           _pmOptionsLoaded = true;
-          // dpFetchFallback 이 성공한 base URL 기억 — SSE 도 같은 서버로
           _pmActiveBase = (_DP_LAST_OK.cafemaster || DP_CAFEMASTER_URLS[0] || "")
             .replace(/\/$/, "");
           _pmSetStatus(
@@ -10964,7 +10974,8 @@
       }
 
       async function _dpFindActiveBase() {
-        // 한 번 /health 로 동작하는 base URL 고르기 (dpFetchFallback 재사용)
+        // /health 로 동작 base URL + role 매칭 확인 (게시글작성/전체)
+        // 매칭 안 되면 null — SSE 안 시작 → 다른 PC 가 처리
         try {
           const res = await dpFetchFallback(
             DP_WRITER_URLS,
@@ -10973,6 +10984,12 @@
             "writer",
           );
           if (!res.ok) return null;
+          const data = await res.json().catch(() => ({}));
+          const role = (data.role || "").trim();
+          if (role && role !== "게시글작성" && role !== "전체") {
+            _dpSetStatus(`⚪ 비활성 (이 PC 역할: ${role})`, "");
+            return null;
+          }
           return (_DP_LAST_OK.writer || DP_WRITER_URLS[0] || "").replace(/\/$/, "");
         } catch (_) {
           return null;
@@ -11022,12 +11039,17 @@
 
       // 기존 함수명 유지 — dpInit/dpStart/dpStop 에서 호출
       async function dpPollStatus() {
-        _dpSetStatus("🟠 연결 중", "");
+        const statusEl = document.getElementById("dpConnectStatus");
+        const prevText = statusEl ? statusEl.textContent : "";
+        // role mismatch (⚪) 직후라면 status 덮지 않음
+        if (!prevText.startsWith("⚪")) _dpSetStatus("🟠 연결 중", "");
         const base = await _dpFindActiveBase();
         if (!base) {
-          _dpSetStatus("🔴 연결 실패 (자동 재시도)", "err");
-          // 5초 뒤 재시도
-          setTimeout(dpPollStatus, 5000);
+          const curText = statusEl ? statusEl.textContent : "";
+          const isMismatch = curText.startsWith("⚪");
+          if (!isMismatch) _dpSetStatus("🔴 연결 실패 (자동 재시도)", "err");
+          // mismatch 면 60초, 진짜 연결 실패면 5초 뒤 재시도
+          setTimeout(dpPollStatus, isMismatch ? 60000 : 5000);
           return;
         }
         _dpActiveWriterBase = base;
