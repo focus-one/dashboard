@@ -10617,9 +10617,9 @@
                 `https://docs.google.com/spreadsheets/d/${DP_STORE_SHEET_ID}/gviz/tq?tqx=out:json&headers=1&_=${Date.now()}`,
                 { cache: "no-store" },
               ),
-              // 계정 시트 '2. 일상글' 탭 — A=O AND D=빈값 행의 B열 제품분류 수집
+              // 계정 시트 '2 일상글' 탭 — 헤더명 매칭으로 컬럼 위치 동적 결정
               fetch(
-                `https://docs.google.com/spreadsheets/d/16RS6FAvEQelDTcCLjyFlt2zcYlOp9oyEUW9r7BNgGmc/gviz/tq?tqx=out:json&headers=1&sheet=${encodeURIComponent("2. 일상글")}&_=${Date.now()}`,
+                `https://docs.google.com/spreadsheets/d/16RS6FAvEQelDTcCLjyFlt2zcYlOp9oyEUW9r7BNgGmc/gviz/tq?tqx=out:json&headers=1&sheet=${encodeURIComponent("2 일상글")}&_=${Date.now()}`,
                 { cache: "no-store" },
               ),
               writerCafesPromise,
@@ -10714,9 +10714,9 @@
             DP_CAFE_OPTIONS = [];
           }
 
-          // 4) 계정 시트 '2. 일상글' 탭 파싱
-          //    - 제품분류(B) unique → 드롭다운
-          //    - 전체 행 보존 → 사용 가능 계정 수 실시간 계산에 사용
+          // 4) 계정 시트 '2 일상글' 탭 파싱 — 헤더명 매칭으로 컬럼 위치 동적 결정
+          //    (backend drive_writer.get_accounts 와 동일 방식 — 시트 컬럼 변경에 안전)
+          //    제품분류 unique → 드롭다운, 전체 행 보존 → 사용 가능 계정 수 실시간 계산
           try {
             const acctText = await accountRes.text();
             const aj = JSON.parse(
@@ -10725,29 +10725,33 @@
                 acctText.lastIndexOf("}") + 1,
               ),
             );
+            // 헤더(cols) 에서 컬럼 인덱스 매핑
+            const norm = (s) => (s || "").replace(/\s|\n/g, "");
+            const colMap = {};
+            (aj.table.cols || []).forEach((c, i) => {
+              const key = norm(c.label || c.id || "");
+              if (key && !(key in colMap)) colMap[key] = i;
+            });
+            const idxStatus  = colMap["상태"];
+            const idxProduct = colMap["제품분류"];
+            const idxCafe    = colMap["사용할카페"];
+            const idxDate    = colMap["포스팅날짜"];
+            const idxId      = colMap["ID"] ?? colMap["id"];
+            const cellVal = (cells, i) =>
+              i != null && cells[i]
+                ? ((cells[i].f ?? cells[i].v ?? "") + "").trim()
+                : "";
             const productSet = new Set();
             const accountRows = [];
             (aj.table.rows || []).forEach((r) => {
               const cells = r.c || [];
-              const status = cells[0]
-                ? ((cells[0].f ?? cells[0].v ?? "") + "").trim()
-                : "";
-              const product = cells[1]
-                ? ((cells[1].f ?? cells[1].v ?? "") + "").trim()
-                : "";
-              const cafe = cells[2]
-                ? ((cells[2].f ?? cells[2].v ?? "") + "").trim()
-                : "";
-              const postDate = cells[3]
-                ? ((cells[3].f ?? cells[3].v ?? "") + "").trim()
-                : "";
-              // F열(cells[5]) ID — 없으면 실제 계정 아님 (writer get_accounts와 동일 정책)
-              const id = cells[5]
-                ? ((cells[5].f ?? cells[5].v ?? "") + "").trim()
-                : "";
+              const status   = cellVal(cells, idxStatus);
+              const product  = cellVal(cells, idxProduct);
+              const cafe     = cellVal(cells, idxCafe);
+              const postDate = cellVal(cells, idxDate);
+              const id       = cellVal(cells, idxId);
               if (!id) return; // ID 없는 행은 집계/카운트 X
               accountRows.push({ status, product, cafe, date: postDate, id });
-              // 제품 드롭다운 옵션 (상태 O + 제품분류 있는 행 기준)
               if (status.toUpperCase() === "O" && product) {
                 productSet.add(product);
               }
@@ -10755,7 +10759,8 @@
             DP_PRODUCT_OPTIONS = Array.from(productSet).sort();
             DP_ACCOUNT_ROWS = accountRows;
             console.log(
-              `[dp] 계정 행 수집: ${accountRows.length}개 (ID 있는 행만)`,
+              `[dp] 계정 행 수집: ${accountRows.length}개 (ID 있는 행만), 컬럼 매핑:`,
+              { idxStatus, idxProduct, idxCafe, idxDate, idxId },
             );
           } catch (e) {
             console.warn("[dp] 계정 시트 제품분류 파싱 실패:", e);
