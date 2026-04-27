@@ -11079,19 +11079,19 @@
         }
 
         btn.disabled = true;
-        setMsg("writer exe에 중지 요청 중...", "");
+        setMsg("백엔드(/write/stop)에 중지 요청 중...", "");
         try {
           const res = await dpFetchFallback(
             DP_WRITER_URLS,
-            "/stop",
-            { method: "POST" },
+            "/write/stop",
+            { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" },
             "writer",
           );
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json().catch(() => ({}));
           setMsg(data.message || "중지 요청 전달됨", "ok");
         } catch (e) {
-          setMsg("writer exe 중지 실패 (" + (e.message || e) + ")", "err");
+          setMsg("중지 실패 (" + (e.message || e) + ")", "err");
         } finally {
           btn.disabled = false;
         }
